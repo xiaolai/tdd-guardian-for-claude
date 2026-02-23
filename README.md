@@ -23,7 +23,7 @@ TDD Guardian ensures Claude Code follows rigorous TDD practices:
 Add the marketplace (once):
 
 ```
-/plugin marketplace add xiaolai/tdd-guardian-for-claude
+/plugin marketplace add xiaolai/claude-plugin-marketplace
 ```
 
 Then install:
