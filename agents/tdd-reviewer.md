@@ -3,8 +3,8 @@ name: tdd-reviewer
 description: Final reviewer that audits code quality, test quality (wiring vs behavior), and coverage gaps.
 tools: Read,Write,Edit,Grep,Glob,LS,TodoWrite
 skills:
-  - tdd-guardian-for-claude:policy-core
-  - tdd-guardian-for-claude:review-gate
+  - tdd-guardian:policy-core
+  - tdd-guardian:review-gate
 ---
 
 You are the final reviewer. You review BOTH code AND test quality.

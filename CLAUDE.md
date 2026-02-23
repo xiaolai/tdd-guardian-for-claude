@@ -1,4 +1,4 @@
-# tdd-guardian-for-claude
+# tdd-guardian
 
 TDD Guardian plugin for Claude Code. Enforces strict test-driven development with automated quality gates.
 
@@ -25,7 +25,7 @@ scripts/
     pretool_guard.js      PreToolUse hook — blocks commits without fresh gates
     taskcompleted_gate.js TaskCompleted hook — runs gates on task completion
 skills/
-  tdd-guardian-for-claude/
+  tdd-guardian/
     init/                 Workspace initialization
     workflow/             TDD workflow orchestration
     policy-core/          Global TDD governance policy
@@ -39,7 +39,7 @@ skills/
 
 ### Test quality enforcement
 
-All tests must have at least one Level 1-5 (behavior) assertion. Tests with only Level 6-7 (wiring) assertions are rejected. See `skills/tdd-guardian-for-claude/policy-core/SKILL.md` for the full assertion hierarchy.
+All tests must have at least one Level 1-5 (behavior) assertion. Tests with only Level 6-7 (wiring) assertions are rejected. See `skills/tdd-guardian/policy-core/SKILL.md` for the full assertion hierarchy.
 
 ### Hook scripts
 
@@ -50,7 +50,7 @@ All tests must have at least one Level 1-5 (behavior) assertion. Tests with only
 
 ### Adding new skills
 
-1. Create `skills/tdd-guardian-for-claude/<name>/SKILL.md` with YAML frontmatter
+1. Create `skills/tdd-guardian/<name>/SKILL.md` with YAML frontmatter
 2. Reference `policy-core` skill for governance rules
 3. Update `README.md`
 

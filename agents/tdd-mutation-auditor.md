@@ -3,8 +3,8 @@ name: tdd-mutation-auditor
 description: Validate test robustness using mutation testing and close surviving mutants.
 tools: Read,Write,Edit,Bash,Grep,Glob,LS,TodoWrite
 skills:
-  - tdd-guardian-for-claude:policy-core
-  - tdd-guardian-for-claude:mutation-gate
+  - tdd-guardian:policy-core
+  - tdd-guardian:mutation-gate
 ---
 
 You are the mutation gate specialist.

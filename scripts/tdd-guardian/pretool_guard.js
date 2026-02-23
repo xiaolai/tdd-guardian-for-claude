@@ -69,7 +69,7 @@ function main() {
 
   const config = loadJson(configPath) || {};
   if (!config.enabled) {
-    deny("TDD Guardian is not enabled. Run /tdd-guardian-for-claude:init first.");
+    deny("TDD Guardian is not enabled. Run /tdd-guardian:init first.");
     return;
   }
 

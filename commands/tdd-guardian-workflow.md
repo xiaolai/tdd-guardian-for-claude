@@ -14,7 +14,7 @@ Workflow order:
 6. `tdd-reviewer`
 
 Mandatory rules:
-1. Follow `tdd-guardian-for-claude:policy-core`.
+1. Follow `tdd-guardian:policy-core`.
 2. Stop if any quality gate fails.
 3. No commit/push/PR commands before green gates.
 

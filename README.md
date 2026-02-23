@@ -1,4 +1,4 @@
-# tdd-guardian-for-claude
+# tdd-guardian
 
 TDD Guardian for Claude Code — enforces strict test-driven development discipline with automated quality gates.
 
@@ -25,29 +25,29 @@ Add the marketplace (once):
 Then install:
 
 ```
-/plugin install tdd-guardian-for-claude@xiaolai
+/plugin install tdd-guardian@xiaolai
 ```
 
 | Scope | Command | Effect |
 |-------|---------|--------|
-| **User** (default) | `/plugin install tdd-guardian-for-claude@xiaolai` | Available in all your projects |
-| **Project** | `/plugin install tdd-guardian-for-claude@xiaolai --scope project` | Shared with team via `.claude/settings.json` |
-| **Local** | `/plugin install tdd-guardian-for-claude@xiaolai --scope local` | Only you, only this repo |
+| **User** (default) | `/plugin install tdd-guardian@xiaolai` | Available in all your projects |
+| **Project** | `/plugin install tdd-guardian@xiaolai --scope project` | Shared with team via `.claude/settings.json` |
+| **Local** | `/plugin install tdd-guardian@xiaolai --scope local` | Only you, only this repo |
 
 ### Initialize for your project
 
-Run `/tdd-guardian-for-claude:init` inside your project to generate `.claude/tdd-guardian/config.json`. This auto-detects your stack and configures test/coverage commands.
+Run `/tdd-guardian:init` inside your project to generate `.claude/tdd-guardian/config.json`. This auto-detects your stack and configures test/coverage commands.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/tdd-guardian-for-claude:init` | Initialize TDD Guardian config for the current project |
-| `/tdd-guardian-for-claude:workflow` | Run the full TDD workflow with specialized subagents |
+| `/tdd-guardian:init` | Initialize TDD Guardian config for the current project |
+| `/tdd-guardian:workflow` | Run the full TDD workflow with specialized subagents |
 
 ## How it works
 
-### The TDD workflow (`/tdd-guardian-for-claude:workflow`)
+### The TDD workflow (`/tdd-guardian:workflow`)
 
 Runs 6 specialized subagents in sequence:
 
@@ -157,7 +157,7 @@ scripts/
     pretool_guard.js      PreToolUse hook — blocks commits without fresh gates
     taskcompleted_gate.js TaskCompleted hook — runs gates on task completion
 skills/
-  tdd-guardian-for-claude/
+  tdd-guardian/
     init/SKILL.md         Workspace initialization skill
     workflow/SKILL.md     TDD workflow orchestration skill
     policy-core/SKILL.md  Global TDD governance policy

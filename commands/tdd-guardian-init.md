@@ -18,5 +18,5 @@ Process:
 4. Print final config and the exact gate commands.
 
 Use skills:
-- `tdd-guardian-for-claude:init`
-- `tdd-guardian-for-claude:policy-core`
+- `tdd-guardian:init`
+- `tdd-guardian:policy-core`

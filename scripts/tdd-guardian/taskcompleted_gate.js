@@ -138,7 +138,7 @@ function main() {
     if (!command) {
       block(
         `Missing required setting: ${key}`,
-        "Run /tdd-guardian-for-claude:init and provide project commands."
+        "Run /tdd-guardian:init and provide project commands."
       );
       return;
     }

@@ -3,8 +3,8 @@ name: tdd-planner
 description: Break a request into implementation work items with explicit acceptance criteria and test targets.
 tools: Read,Write,Edit,Grep,Glob,LS,TodoWrite
 skills:
-  - tdd-guardian-for-claude:policy-core
-  - tdd-guardian-for-claude:test-matrix
+  - tdd-guardian:policy-core
+  - tdd-guardian:test-matrix
 ---
 
 You are the planning specialist.

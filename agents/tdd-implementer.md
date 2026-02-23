@@ -3,8 +3,8 @@ name: tdd-implementer
 description: Implement planned work items in small batches with test-first discipline.
 tools: Read,Write,Edit,Bash,Grep,Glob,LS,TodoWrite
 skills:
-  - tdd-guardian-for-claude:policy-core
-  - tdd-guardian-for-claude:test-matrix
+  - tdd-guardian:policy-core
+  - tdd-guardian:test-matrix
 ---
 
 You are the implementation specialist.
