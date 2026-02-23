@@ -1,0 +1,8 @@
+{
+  "name": "tdd-guardian-for-claude",
+  "version": "0.1.0",
+  "description": "TDD Guardian — enforces strict test-driven development discipline in Claude Code with quality gates, coverage enforcement, and mutation testing",
+  "author": {
+    "name": "xiaolai"
+  }
+}
