@@ -22,8 +22,8 @@ config/
   config.json             Default configuration template
 scripts/
   tdd-guardian/
-    pretool_guard.py      PreToolUse hook — blocks commits without fresh gates
-    taskcompleted_gate.py TaskCompleted hook — runs gates on task completion
+    pretool_guard.js      PreToolUse hook — blocks commits without fresh gates
+    taskcompleted_gate.js TaskCompleted hook — runs gates on task completion
 skills/
   tdd-guardian-for-claude/
     init/                 Workspace initialization

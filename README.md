@@ -14,10 +14,6 @@ TDD Guardian ensures Claude Code follows rigorous TDD practices:
 
 ## Installation
 
-### Prerequisites
-
-- Python 3.8+ (for hook scripts)
-
 ### Install the plugin
 
 Add the marketplace (once):
@@ -68,8 +64,8 @@ The workflow stops if any gate fails. No commit/push is allowed until all gates 
 
 TDD Guardian installs two hooks:
 
-- **PreToolUse hook** (`pretool_guard.py`): intercepts `git commit`, `git push`, `gh pr create`, and `npm publish` commands. Blocks them unless quality gates have passed recently (configurable freshness window).
-- **TaskCompleted hook** (`taskcompleted_gate.py`): runs tests, coverage checks, and mutation tests automatically when a task completes. Updates gate state on success.
+- **PreToolUse hook** (`pretool_guard.js`): intercepts `git commit`, `git push`, `gh pr create`, and `npm publish` commands. Blocks them unless quality gates have passed recently (configurable freshness window).
+- **TaskCompleted hook** (`taskcompleted_gate.js`): runs tests, coverage checks, and mutation tests automatically when a task completes. Updates gate state on success.
 
 ### Test quality philosophy
 
@@ -158,8 +154,8 @@ config/
   config.json             Default configuration template
 scripts/
   tdd-guardian/
-    pretool_guard.py      PreToolUse hook — blocks commits without fresh gates
-    taskcompleted_gate.py TaskCompleted hook — runs gates on task completion
+    pretool_guard.js      PreToolUse hook — blocks commits without fresh gates
+    taskcompleted_gate.js TaskCompleted hook — runs gates on task completion
 skills/
   tdd-guardian-for-claude/
     init/SKILL.md         Workspace initialization skill
