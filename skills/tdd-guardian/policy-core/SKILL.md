@@ -99,6 +99,25 @@ it("stops a running container", async () => {
 });
 ```
 
+## Coverage ignore directives
+
+When excluding lines from coverage, **always use range comments**, never the line-count form:
+
+```typescript
+// BAD: /* v8 ignore next N */ silently fails on ??, ternaries, catch bodies, and short-circuit operators
+/* v8 ignore next 3 */
+const value = input ?? defaultValue;
+
+// GOOD: range comments work reliably on all constructs
+/* v8 ignore start */
+const value = input ?? defaultValue;
+/* v8 ignore stop */
+```
+
+`/* v8 ignore next N */` silently miscounts on these constructs — coverage appears covered but the ignore is not applied, or worse, it skips the wrong lines. The `start`/`stop` form is explicit and immune to this class of bugs.
+
+**Mandatory rule**: flag any `/* v8 ignore next */` or `/* v8 ignore next N */` in review as a potential silent failure. Replace with `/* v8 ignore start */` / `/* v8 ignore stop */`.
+
 ## Completion gates
 
 1. Test command must pass.

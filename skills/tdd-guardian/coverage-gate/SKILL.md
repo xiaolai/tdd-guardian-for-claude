@@ -53,6 +53,21 @@ For each test file in the coverage report:
 
 4. **Gate result**: FAIL if any wiring-only tests exist in changed files. WARN (non-blocking) for existing wiring-only tests in unchanged files.
 
+### Gate 3: Coverage ignore directive audit
+
+Scan all source files (not test files) for V8 coverage ignore comments. Flag misuse:
+
+- **FAIL**: `/* v8 ignore next */` or `/* v8 ignore next N */` — silently fails on `??`, ternaries, `catch` bodies, and short-circuit operators (`&&`, `||`). Replace with `/* v8 ignore start */` / `/* v8 ignore stop */`.
+- **PASS**: `/* v8 ignore start */` / `/* v8 ignore stop */` range pairs.
+
+```
+Coverage Ignore Audit:
+✗ 2 files use unreliable /* v8 ignore next N */:
+  - src/config.ts:42 — covers ?? expression, will silently fail
+  - src/handler.ts:88 — covers ternary, will silently fail
+Fix: replace with /* v8 ignore start */ / /* v8 ignore stop */ range comments
+```
+
 ### How to fix wiring-only tests
 
 | Current assertion | Add this | Example |

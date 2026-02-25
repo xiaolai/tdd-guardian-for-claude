@@ -50,7 +50,11 @@ expect(callArgs.HostConfig.ReadonlyRootfs).toBe(true);
 
 Security properties must be verified via integration tests or by inspecting the actual resource.
 
-### Check 4: Missing integration test coverage
+### Check 4: Unreliable coverage ignore directives
+
+Scan source files for `/* v8 ignore next */` or `/* v8 ignore next N */`. These silently fail on `??`, ternaries, `catch` bodies, and short-circuit operators (`&&`, `||`) — the directive is not applied but no error is reported, producing false coverage numbers. Flag as **High severity**. Fix: replace with `/* v8 ignore start */` / `/* v8 ignore stop */`.
+
+### Check 5: Missing integration test coverage
 
 For any unit test that mocks a system boundary, check if a corresponding integration test exists (in `__tests__/integration/`). Flag missing integration coverage as **Medium severity**.
 
@@ -63,4 +67,5 @@ For any unit test that mocks a system boundary, check if a corresponding integra
 |---|----------|-----------|---------|-----|
 | 1 | High | docker/container.test.ts:52 | Wiring-only: security defaults verified via mock args, no behavioral assertion | Add integration test that inspects real container |
 | 2 | Med | cli/lifecycle.test.ts:50 | Mock-was-called as sole verification for stop command | Assert formatted output or inspect container state |
+| 3 | High | src/config.ts:42 | `/* v8 ignore next 3 */` on `??` expression — silently fails | Replace with `/* v8 ignore start */` / `/* v8 ignore stop */` |
 ```
