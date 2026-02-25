@@ -139,7 +139,8 @@ TDD_GUARD_BYPASS=1 claude
 ```
 .claude-plugin/
   plugin.json             Plugin metadata
-  marketplace.json        Marketplace manifest
+hooks/
+  hooks.json              Hook registration (auto-discovered by Claude Code)
 agents/
   tdd-planner.md          Work item planning specialist
   tdd-test-designer.md    Behavior-driven test design specialist

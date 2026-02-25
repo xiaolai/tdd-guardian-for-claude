@@ -7,7 +7,8 @@ TDD Guardian plugin for Claude Code. Enforces strict test-driven development wit
 ```
 .claude-plugin/
   plugin.json             Plugin metadata
-  marketplace.json        Marketplace manifest
+hooks/
+  hooks.json              Hook registration (auto-discovered by Claude Code)
 agents/                   Specialized subagents for TDD workflow
   tdd-planner.md          Work item planning
   tdd-test-designer.md    Behavior-driven test design
@@ -43,8 +44,9 @@ All tests must have at least one Level 1-5 (behavior) assertion. Tests with only
 
 ### Hook scripts
 
-- `pretool_guard.py` intercepts Bash tool calls matching commit/push/publish patterns
-- `taskcompleted_gate.py` runs test/coverage/mutation gates on task completion
+- Hooks are registered via `hooks/hooks.json` using `${CLAUDE_PLUGIN_ROOT}` paths
+- `pretool_guard.js` intercepts Bash tool calls matching commit/push/publish patterns
+- `taskcompleted_gate.js` runs test/coverage/mutation gates on task completion
 - Both read config from `.claude/tdd-guardian/config.json` in the project workspace
 - Gate freshness state is written to `.claude/tdd-guardian/state.json`
 
