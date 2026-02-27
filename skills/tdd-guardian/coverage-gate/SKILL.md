@@ -28,11 +28,13 @@ Default threshold policy: `100` for all metrics.
 
 Coverage alone is insufficient. A test that touches every line but only asserts `expect(mock).toHaveBeenCalled()` provides zero regression safety.
 
+Follow the assertion hierarchy and mock rules defined in the `policy-core` skill.
+
 ### Quality scan procedure
 
 For each test file in the coverage report:
 
-1. **Count assertion types** per test:
+1. **Count assertion types** per test using the assertion hierarchy from `policy-core`:
    - Level 1-5 (behavior): return value checks, error checks, output checks, state checks, integration checks
    - Level 6-7 (wiring): mock call args, mock call counts
 

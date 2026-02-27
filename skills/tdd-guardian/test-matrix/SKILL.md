@@ -32,7 +32,9 @@ For each changed unit/function, provide this matrix before coding tests:
 
 ## Assertion strategy guide
 
-For each test case, explicitly state HOW you will verify it:
+Follow the assertion hierarchy and mock rules defined in the `policy-core` skill.
+
+For each test case, explicitly state HOW you will verify it, preferring Level 1-5 (behavior) assertions over Level 6-7 (wiring) assertions per `policy-core`:
 
 | If testing... | Assert via... | NOT via... |
 |--------------|---------------|------------|
@@ -46,7 +48,7 @@ For each test case, explicitly state HOW you will verify it:
 
 ## Mock decision tree
 
-Before adding a mock, answer:
+Apply the mock rules from `policy-core`. Before adding a mock, answer:
 
 1. **Can I use the real thing?** (in-memory DB, tmpdir, real Zod parse) → Use real.
 2. **Is it a system boundary?** (Docker daemon, network, child process) → Mock is OK.

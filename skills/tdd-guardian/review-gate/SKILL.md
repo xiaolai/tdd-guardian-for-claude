@@ -19,25 +19,17 @@ description: Produce findings-first code review with severity ordering, test-gap
 
 ## Test quality audit (mandatory)
 
+Follow the assertion hierarchy and mock rules defined in the `policy-core` skill.
+
 For every test file touched or relevant to the change, evaluate:
 
 ### Check 1: Wiring-only tests
 
-Scan for tests where the ONLY assertions are:
-- `expect(mockFn).toHaveBeenCalled()`
-- `expect(mockFn).toHaveBeenCalledWith(...)`
-- `expect(mockFn).toHaveBeenCalledTimes(...)`
-
-If a test has NO assertion on return values, thrown errors, formatted output, DB state, or other observable behavior — flag it as **High severity: wiring-only test**.
+Scan for tests where the ONLY assertions are Level 6-7 (wiring) per the `policy-core` assertion hierarchy. If a test has NO assertion on return values, thrown errors, formatted output, DB state, or other observable behavior — flag it as **High severity: wiring-only test**.
 
 ### Check 2: Mock boundary violations
 
-Flag tests that mock:
-- Internal modules from the same repo (use real imports instead)
-- Pure functions (use real implementation)
-- Types or schemas (use real Zod parse)
-
-Acceptable mocks: Docker daemon, network I/O, child_process, Date.now, crypto.randomBytes.
+Apply the mock rules from `policy-core`. Flag tests that mock internal modules, pure functions, or types/schemas. See `policy-core` for the full list of acceptable vs. unacceptable mock targets.
 
 ### Check 3: Security verification method
 

@@ -31,6 +31,7 @@ function runCmd(command, cwd) {
       cwd,
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
+      maxBuffer: 10 * 1024 * 1024,
     });
     return [true, output.trim()];
   } catch (err) {
