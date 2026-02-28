@@ -4,7 +4,7 @@
   "blockCommitWithoutFreshGate": true,
   "gateFreshnessMinutes": 120,
   "bypassEnv": "TDD_GUARD_BYPASS",
-  "preflightCommand": "pnpm exec tsc --noEmit",
+  "preflightCommand": "",
   "testCommand": "pnpm test",
   "coverageCommand": "pnpm test -- --coverage",
   "coverageSummaryPath": "coverage/coverage-summary.json",

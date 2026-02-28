@@ -1,0 +1,21 @@
+{
+  "name": "xiaolai",
+  "plugins": [
+    {
+      "name": "tdd-guardian",
+      "source": {
+        "source": "github",
+        "repo": "xiaolai/tdd-guardian-for-claude"
+      },
+      "description": "TDD Guardian — enforces strict test-driven development discipline in Claude Code with quality gates, coverage enforcement, and mutation testing",
+      "version": "0.5.1",
+      "author": {
+        "name": "xiaolai"
+      },
+      "repository": "https://github.com/xiaolai/tdd-guardian-for-claude",
+      "license": "MIT",
+      "keywords": ["tdd", "testing", "coverage", "mutation-testing", "quality-gates"],
+      "category": "developer-tools"
+    }
+  ]
+}

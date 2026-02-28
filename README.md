@@ -12,6 +12,8 @@ TDD Guardian ensures Claude Code follows rigorous TDD practices:
 - **Behavior-driven test quality**: rejects wiring-only tests that assert mock calls without verifying observable behavior
 - **Pre-commit enforcement**: hooks block `git commit`, `git push`, and `gh pr create` until all gates pass
 
+Part of the [xiaolai plugin marketplace](https://github.com/xiaolai/claude-plugin-marketplace).
+
 ## Installation
 
 ### Install the plugin

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 "use strict";
+// Hook output schema (TaskCompleted): { decision: "block"|"allow", reason: string }
 
 const { execSync } = require("child_process");
 const fs = require("fs");

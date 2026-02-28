@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 "use strict";
+// Hook output schema (PreToolUse): { permissionDecision: "allow"|"deny", permissionDecisionReason: string }
 
 const fs = require("fs");
 const path = require("path");
@@ -45,6 +46,7 @@ function main() {
   try {
     raw = fs.readFileSync(0, "utf8").trim();
   } catch {
+    console.error("[tdd-guardian] Warning: stdin read failed, allowing command (fail-open)");
     return;
   }
   if (!raw) return;
