@@ -2,6 +2,7 @@
 "use strict";
 // Hook output schema (PreToolUse): { permissionDecision: "allow"|"deny", permissionDecisionReason: string }
 
+const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
@@ -41,6 +42,22 @@ function isGateFresh(state, freshnessMinutes) {
   return ageMinutes <= freshnessMinutes;
 }
 
+// SHA comes from our own state.json (written by taskcompleted_gate.js via git rev-parse),
+// not from user input, so execSync is safe here.
+function hasSourceChangedSince(sha, cwd) {
+  if (!sha || !/^[0-9a-f]{40,64}$/i.test(sha)) return true;
+  try {
+    const output = execSync("git diff --name-only " + sha + " HEAD", {
+      cwd,
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+    return output.length > 0;
+  } catch {
+    return true;
+  }
+}
+
 function main() {
   let raw = "";
   try {
@@ -69,9 +86,9 @@ function main() {
   const configPath = path.join(cwd, ".claude", "tdd-guardian", "config.json");
   const statePath = path.join(cwd, ".claude", "tdd-guardian", "state.json");
 
-  const config = loadJson(configPath) || {};
-  if (!config.enabled) {
-    deny("TDD Guardian is not enabled. Run /tdd-guardian:init first.");
+  const config = loadJson(configPath);
+  if (!config || !config.enabled) {
+    // No config or not enabled — silently allow (don't block uninitialised projects)
     return;
   }
 
@@ -83,6 +100,11 @@ function main() {
   const state = loadJson(statePath) || {};
   const freshnessMinutes = Number(config.gateFreshnessMinutes) || 120;
   if (!isGateFresh(state, freshnessMinutes)) {
+    // Smart staleness: if enabled and no source files changed since last gate, allow
+    const smartStaleness = config.smartStaleness !== false; // default: true
+    if (smartStaleness && state.last_head_sha && !hasSourceChangedSince(state.last_head_sha, cwd)) {
+      return; // Gates still valid — no code changed
+    }
     deny(
       "Blocked by TDD Guardian: quality gates are stale or missing. " +
         "Run your gate commands (tests, coverage, mutation if enabled), then retry."

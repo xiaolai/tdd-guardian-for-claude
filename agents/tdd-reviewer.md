@@ -1,7 +1,7 @@
 ---
 name: tdd-reviewer
 description: Final reviewer that audits code quality, test quality (wiring vs behavior), and coverage gaps.
-tools: Read,Write,Edit,Grep,Glob,LS,TodoWrite
+allowed-tools: Read,Grep,Glob,LS,TodoWrite
 skills:
   - tdd-guardian:policy-core
   - tdd-guardian:review-gate

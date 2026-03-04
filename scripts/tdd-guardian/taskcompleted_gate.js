@@ -43,7 +43,7 @@ function runCmd(command, cwd) {
   }
 }
 
-function checkCoverage(config, cwd) {
+function parseCoverageMetrics(config, cwd) {
   let summaryPath = String(config.coverageSummaryPath || "coverage/coverage-summary.json");
   if (!path.isAbsolute(summaryPath)) {
     summaryPath = path.join(cwd, summaryPath);
@@ -51,31 +51,86 @@ function checkCoverage(config, cwd) {
 
   const summary = loadJson(summaryPath);
   if (!summary || typeof summary !== "object") {
-    return [false, `Coverage summary not found or invalid: ${summaryPath}`];
+    return [null, `Coverage summary not found or invalid: ${summaryPath}`];
   }
 
   const total = summary.total || {};
   const thresholds = { ...DEFAULT_THRESHOLDS, ...(config.coverageThresholds || {}) };
-
-  const failures = [];
-  const checks = {};
-  for (const [key, threshold] of Object.entries(thresholds)) {
+  const metrics = {};
+  for (const key of Object.keys(thresholds)) {
     const data = total[key] || {};
-    const actual = typeof data.pct === "number" ? data.pct : -1;
-    checks[key] = actual;
+    metrics[key] = typeof data.pct === "number" ? data.pct : -1;
+  }
+  return [metrics, null];
+}
+
+function getCurrentBranch(cwd) {
+  const [ok, out] = runCmd("git rev-parse --abbrev-ref HEAD", cwd);
+  return ok ? out : null;
+}
+
+function getHeadSha(cwd) {
+  const [ok, out] = runCmd("git rev-parse HEAD", cwd);
+  return ok ? out : null;
+}
+
+function checkCoverageAbsolute(metrics, thresholds) {
+  const failures = [];
+  for (const [key, threshold] of Object.entries(thresholds)) {
+    const actual = metrics[key];
     if (actual < Number(threshold)) {
       failures.push(`${key}: ${actual.toFixed(2)}% < ${Number(threshold).toFixed(2)}%`);
     }
   }
-
   if (failures.length > 0) {
     return [false, "Coverage gate failed: " + failures.join("; ")];
   }
+  const summary = Object.entries(metrics).map(([k, v]) => `${k}=${v.toFixed(2)}%`).join(", ");
+  return [true, "Coverage gate passed: " + summary];
+}
 
-  return [
-    true,
-    "Coverage gate passed: " + Object.entries(checks).map(([k, v]) => `${k}=${v.toFixed(2)}%`).join(", "),
-  ];
+function checkCoverageNoDecrease(metrics, state, cwd) {
+  const branch = getCurrentBranch(cwd);
+  const baseline = state.baseline;
+  const summary = Object.entries(metrics).map(([k, v]) => `${k}=${v.toFixed(2)}%`).join(", ");
+
+  // No baseline or branch changed — record new baseline, pass
+  if (!baseline || !baseline.coverage || baseline.branch !== branch) {
+    return [true, `Baseline recorded for branch '${branch || "unknown"}': ${summary}`, {
+      branch: branch || "unknown",
+      recorded_at: new Date().toISOString(),
+      coverage: { ...metrics },
+    }];
+  }
+
+  // Compare against baseline
+  const failures = [];
+  for (const [key, current] of Object.entries(metrics)) {
+    const base = typeof baseline.coverage[key] === "number" ? baseline.coverage[key] : -1;
+    if (current < base) {
+      failures.push(`${key}: ${current.toFixed(2)}% < baseline ${base.toFixed(2)}% (Δ ${(current - base).toFixed(2)}%)`);
+    }
+  }
+
+  if (failures.length > 0) {
+    return [false, "Coverage decreased from baseline: " + failures.join("; "), null];
+  }
+
+  return [true, "Coverage gate passed (no decrease from baseline): " + summary, null];
+}
+
+function checkCoverage(config, cwd, state) {
+  const [metrics, err] = parseCoverageMetrics(config, cwd);
+  if (!metrics) return [false, err, null];
+
+  const mode = String(config.coverageMode || "absolute");
+  if (mode === "no-decrease") {
+    return checkCoverageNoDecrease(metrics, state, cwd);
+  }
+
+  const thresholds = { ...DEFAULT_THRESHOLDS, ...(config.coverageThresholds || {}) };
+  const [ok, msg] = checkCoverageAbsolute(metrics, thresholds);
+  return [ok, msg, null];
 }
 
 function block(reason, context) {
@@ -152,7 +207,8 @@ function main() {
     }
   }
 
-  const [coverageOk, coverageMsg] = checkCoverage(config, cwd);
+  const state = loadJson(statePath) || {};
+  const [coverageOk, coverageMsg, newBaseline] = checkCoverage(config, cwd, state);
   executionLog.push(coverageMsg);
   if (!coverageOk) {
     block("Coverage gate failed", executionLog.join("\n\n").slice(-8000));
@@ -177,12 +233,22 @@ function main() {
     }
   }
 
-  writeJson(statePath, {
+  const stateData = {
     last_gate_passed_at: new Date().toISOString(),
     last_result: "passed",
+    last_head_sha: getHeadSha(cwd) || "",
     require_mutation: requireMutation,
     coverage_summary_path: String(config.coverageSummaryPath || "coverage/coverage-summary.json"),
-  });
+  };
+
+  // Preserve or set baseline for no-decrease mode
+  if (newBaseline) {
+    stateData.baseline = newBaseline;
+  } else if (state.baseline) {
+    stateData.baseline = state.baseline;
+  }
+
+  writeJson(statePath, stateData);
 }
 
 main();

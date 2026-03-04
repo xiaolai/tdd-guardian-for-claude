@@ -35,9 +35,20 @@ Default config template:
     "branches": 100,
     "statements": 100
   },
+  "coverageMode": "absolute",
+  "smartStaleness": true,
   "requireMutation": false,
   "mutationCommand": ""
 }
 ```
+
+### Coverage mode
+
+- `"absolute"` (default): must meet configured thresholds
+- `"no-decrease"`: blocks only if coverage decreased from recorded baseline (useful for projects with pre-existing coverage gaps)
+
+### Smart staleness
+
+When `smartStaleness: true` (default), stale gate timestamps are allowed if no source files have changed since the last gate pass. This prevents unnecessary re-runs when stepping away from the project.
 
 If project is not Node-based, replace commands with project-native equivalents.

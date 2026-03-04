@@ -1,7 +1,7 @@
 ---
 name: tdd-planner
 description: Break a request into implementation work items with explicit acceptance criteria and test targets.
-tools: Read,Write,Edit,Grep,Glob,LS,TodoWrite
+allowed-tools: Read,Grep,Glob,LS,TodoWrite
 skills:
   - tdd-guardian:policy-core
   - tdd-guardian:test-matrix

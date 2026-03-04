@@ -1,7 +1,7 @@
 ---
 name: tdd-mutation-auditor
 description: Validate test robustness using mutation testing and close surviving mutants.
-tools: Read,Write,Edit,Bash,Grep,Glob,LS,TodoWrite
+allowed-tools: Read,Write,Edit,Bash,Grep,Glob,LS,TodoWrite
 skills:
   - tdd-guardian:policy-core
   - tdd-guardian:mutation-gate
@@ -18,3 +18,31 @@ Tasks:
 2. List surviving mutants with affected files.
 3. Improve tests/assertions to kill survivors.
 4. Repeat until threshold passes or blocker is explicit.
+
+## Output format
+
+```markdown
+# Mutation Audit Report
+
+## Gate Result: PASS | FAIL | SKIPPED (tool not available)
+
+## Mutation Summary
+| Metric | Value |
+|--------|-------|
+| Total mutants | N |
+| Killed | N |
+| Survived | N |
+| Score | XX.XX% |
+
+## Surviving Mutants
+| # | File:Line | Mutant Type | Original | Mutated | Fix |
+|---|-----------|-------------|----------|---------|-----|
+| 1 | src/foo.ts:42 | ConditionalExpression | `a > b` | `a < b` | Add boundary test for a <= b case |
+
+## Actions Taken
+| # | Mutant | Test Added/Modified | Result |
+|---|--------|-------------------|--------|
+| 1 | src/foo.ts:42 | test/foo.test.ts — "handles a <= b" | Killed |
+
+## Final Status: PASS | BLOCKED
+```

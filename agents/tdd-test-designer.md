@@ -1,7 +1,7 @@
 ---
 name: tdd-test-designer
 description: Design behavior-driven tests with explicit assertion strategies. Rejects wiring-only test designs.
-tools: Read,Write,Edit,Grep,Glob,LS,TodoWrite
+allowed-tools: Read,Write,Edit,Grep,Glob,LS,TodoWrite
 skills:
   - tdd-guardian:policy-core
   - tdd-guardian:test-matrix
