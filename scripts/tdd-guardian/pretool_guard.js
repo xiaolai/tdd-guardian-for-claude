@@ -42,6 +42,18 @@ function isGateFresh(state, freshnessMinutes) {
   return ageMinutes <= freshnessMinutes;
 }
 
+// Non-source file extensions — changes to these don't invalidate gates
+const NON_SOURCE_EXTS = new Set([
+  ".md", ".mdx", ".txt", ".json", ".yaml", ".yml", ".toml",
+  ".lock", ".log", ".csv", ".svg", ".png", ".jpg", ".jpeg",
+  ".gif", ".ico", ".woff", ".woff2", ".ttf", ".eot",
+]);
+
+function isSourceFile(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  return ext !== "" && !NON_SOURCE_EXTS.has(ext);
+}
+
 // SHA comes from our own state.json (written by taskcompleted_gate.js via git rev-parse),
 // not from user input, so execSync is safe here.
 function hasSourceChangedSince(sha, cwd) {
@@ -52,7 +64,8 @@ function hasSourceChangedSince(sha, cwd) {
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
     }).trim();
-    return output.length > 0;
+    if (!output) return false;
+    return output.split("\n").some((f) => isSourceFile(f.trim()));
   } catch {
     return true;
   }

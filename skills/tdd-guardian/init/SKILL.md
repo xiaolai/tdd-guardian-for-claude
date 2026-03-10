@@ -14,15 +14,19 @@ Create `.claude/tdd-guardian/config.json` using project-appropriate commands.
    - `testCommand`
    - `coverageCommand`
    - `mutationCommand` (optional)
-3. Write config file with strict defaults.
+3. **Ask the user** whether to enable blocking hooks:
+   - `enforceOnTaskCompleted` — run gates automatically on task completion
+   - `blockCommitWithoutFreshGate` — block commit/push/publish without fresh gates
+   - Default: both `false` (non-blocking). Skills, agents, and slash commands still work — only automatic blocking is opt-in.
+4. Write config file.
 
 Default config template:
 
 ```json
 {
   "enabled": true,
-  "enforceOnTaskCompleted": true,
-  "blockCommitWithoutFreshGate": true,
+  "enforceOnTaskCompleted": false,
+  "blockCommitWithoutFreshGate": false,
   "gateFreshnessMinutes": 120,
   "bypassEnv": "TDD_GUARD_BYPASS",
   "preflightCommand": "",

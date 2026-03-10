@@ -1,7 +1,7 @@
 {
   "enabled": true,
-  "enforceOnTaskCompleted": true,
-  "blockCommitWithoutFreshGate": true,
+  "enforceOnTaskCompleted": false,
+  "blockCommitWithoutFreshGate": false,
   "gateFreshnessMinutes": 120,
   "bypassEnv": "TDD_GUARD_BYPASS",
   "preflightCommand": "",
