@@ -1,6 +1,15 @@
 ---
 name: tdd-test-designer
-description: Design behavior-driven tests with explicit assertion strategies. Rejects wiring-only test designs.
+description: |
+  Design behavior-driven tests with explicit assertion strategies. Rejects wiring-only test designs.
+  <example>
+  Context: The tdd-planner has produced a work item for a rate-limiter middleware that blocks requests exceeding 100 req/min per IP.
+  assistant: "I'll use the tdd-test-designer to produce a concrete test matrix covering success cases, boundary conditions (exactly 100, exactly 101), invalid inputs, and concurrency behavior for the rate-limiter."
+  </example>
+  <example>
+  Context: A work item requires a CSV parser that handles malformed rows, empty files, and BOM characters.
+  assistant: "I'll dispatch the tdd-test-designer to design behavior-driven tests with real file fixtures — no mocking the fs module — covering all edge cases and specifying Level 1-5 assertions for each."
+  </example>
 allowed-tools: Read,Write,Edit,Grep,Glob,LS,TodoWrite
 skills:
   - tdd-guardian:policy-core

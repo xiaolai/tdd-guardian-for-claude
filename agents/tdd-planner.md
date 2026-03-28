@@ -1,6 +1,15 @@
 ---
 name: tdd-planner
-description: Break a request into implementation work items with explicit acceptance criteria and test targets.
+description: |
+  Break a request into implementation work items with explicit acceptance criteria and test targets.
+  <example>
+  Context: User asks to add a user authentication feature with login, logout, and session handling to an Express API.
+  assistant: "I'll use the tdd-planner to break down the authentication feature into work items with acceptance criteria and required test targets for each component."
+  </example>
+  <example>
+  Context: User wants to refactor a payment processing module to support multiple currencies.
+  assistant: "I'll dispatch the tdd-planner to decompose the currency refactor into discrete work items, identify risks, and define the test targets before any code is written."
+  </example>
 allowed-tools: Read,Grep,Glob,LS,TodoWrite
 skills:
   - tdd-guardian:policy-core
