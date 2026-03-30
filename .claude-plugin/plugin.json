@@ -1,7 +1,7 @@
 {
   "name": "tdd-guardian",
-  "version": "0.6.2",
-  "description": "TDD Guardian — enforces strict test-driven development discipline in Claude Code with quality gates, coverage enforcement, and mutation testing",
+  "version": "0.6.3",
+  "description": "TDD Guardian \u2014 enforces strict test-driven development discipline in Claude Code with quality gates, coverage enforcement, and mutation testing",
   "author": {
     "name": "xiaolai"
   }
