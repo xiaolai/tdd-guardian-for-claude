@@ -16,6 +16,12 @@ Process:
    - `enabled=true`
    - coverage thresholds at 100 for lines/functions/branches/statements
 4. Print final config and the exact gate commands.
+5. Update `.gitignore` — append the following lines if not already present:
+
+```
+# tdd-guardian generated artifacts
+.claude/tdd-guardian/state.json
+```
 
 Use skills:
 - `tdd-guardian:init`
