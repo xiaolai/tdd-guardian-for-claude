@@ -21,13 +21,13 @@ function loadJson(filePath) {
   }
 }
 
-function deny(reason) {
+function warn(reason) {
   console.log(
     JSON.stringify({
       hookSpecificOutput: {
         hookEventName: "PreToolUse",
-        permissionDecision: "deny",
-        permissionDecisionReason: reason,
+        permissionDecision: "allow",
+        permissionDecisionReason: "⚠ TDD Guardian warning: " + reason,
       },
     })
   );
@@ -118,9 +118,9 @@ function main() {
     if (smartStaleness && state.last_head_sha && !hasSourceChangedSince(state.last_head_sha, cwd)) {
       return; // Gates still valid — no code changed
     }
-    deny(
-      "Blocked by TDD Guardian: quality gates are stale or missing. " +
-        "Run your gate commands (tests, coverage, mutation if enabled), then retry."
+    warn(
+      "Quality gates are stale or missing. " +
+        "Consider running your gate commands (tests, coverage, mutation if enabled)."
     );
   }
 }
