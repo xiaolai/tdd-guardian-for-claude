@@ -1,6 +1,7 @@
 ---
 description: Initialize TDD Guardian for this workspace (strict test and coverage gates)
 argument-hint: "[optional test command hints]"
+allowed-tools: Read, Write, Glob, Grep, AskUserQuestion
 ---
 
 Initialize `.claude/tdd-guardian/config.json` for the current project.

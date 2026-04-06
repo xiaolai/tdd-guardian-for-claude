@@ -1,6 +1,7 @@
 ---
 description: Run strict TDD orchestration via specialized subagents
 argument-hint: "<task description>"
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion
 ---
 
 Run the TDD Guardian workflow for the given task.
