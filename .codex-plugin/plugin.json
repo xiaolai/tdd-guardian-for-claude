@@ -1,0 +1,41 @@
+{
+  "name": "tdd-guardian",
+  "version": "0.6.5-codex.1",
+  "description": "Enforces strict test-driven development in Codex with workflow skills, code-change gates, coverage checks, and mutation testing.",
+  "author": {
+    "name": "xiaolai",
+    "url": "https://github.com/xiaolai"
+  },
+  "homepage": "https://github.com/xiaolai/tdd-guardian-for-claude",
+  "repository": "https://github.com/xiaolai/tdd-guardian-for-claude",
+  "license": "MIT",
+  "keywords": [
+    "tdd",
+    "testing",
+    "coverage",
+    "mutation-testing",
+    "quality-gates",
+    "codex"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "TDD Guardian",
+    "shortDescription": "Strict TDD workflow and gate enforcement for Codex",
+    "longDescription": "A Codex-native port of TDD Guardian. It bundles workflow skills for plan-first implementation, behavior-driven test design, coverage and mutation gates, review checks, plus installable repo hooks that run quality gates after source changes and block release commands when gates are stale.",
+    "developerName": "xiaolai",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/xiaolai/tdd-guardian-for-claude",
+    "defaultPrompt": [
+      "Use TDD Guardian to implement this with strict TDD.",
+      "Initialize TDD Guardian hooks for this repository.",
+      "Audit this change for coverage, mutation, and test quality."
+    ],
+    "brandColor": "#10A37F",
+    "screenshots": []
+  }
+}

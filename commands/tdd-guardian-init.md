@@ -1,30 +1,27 @@
----
-name: tdd-guardian-init
-description: Initialize TDD Guardian for this workspace (strict test and coverage gates)
-argument-hint: "[optional test command hints]"
-allowed-tools: Read, Write, Glob, Grep, AskUserQuestion
----
+# /tdd-guardian-init
 
-Initialize `.claude/tdd-guardian/config.json` for the current project.
+Initialize TDD Guardian for the current repository.
 
-Process:
-1. Detect project stack and package manager.
-2. Propose concrete values for:
-   - `testCommand`
-   - `coverageCommand`
-   - `coverageSummaryPath`
-   - `mutationCommand` (if available)
-3. Update config with strict defaults:
-   - `enabled=true`
-   - coverage thresholds at 100 for lines/functions/branches/statements
-4. Print final config and the exact gate commands.
-5. Update `.gitignore` — append the following lines if not already present:
+## Arguments
 
-```
-# tdd-guardian generated artifacts
-.claude/tdd-guardian/state.json
-```
+- `testCommand`: project test command (optional)
+- `coverageCommand`: project coverage command (optional)
+- `coverageSummaryPath`: coverage summary JSON path (optional)
+- `coverageMode`: `absolute` or `no-decrease` (optional)
+- `installAgents`: install Codex custom agent templates into `.codex/agents/` (optional)
 
-Use skills:
-- `tdd-guardian:init`
-- `tdd-guardian:policy-core`
+## Workflow
+
+1. Use the `$tdd-guardian-init` skill.
+2. Detect the package manager and test framework from project files.
+3. Generate or update `.codex/tdd-guardian/config.json`.
+4. Install hook scripts under `.codex/tdd-guardian/scripts/`.
+5. Merge TDD Guardian entries into `.codex/hooks.json` without removing unrelated hooks.
+6. Append `.codex/tdd-guardian/state.json` and `.codex/tdd-guardian/logs/` to `.gitignore` when missing.
+7. Print the final gate commands and whether custom agents were installed.
+
+## Guardrails
+
+- Do not overwrite unrelated `.codex/hooks.json` hook entries.
+- Migrate `.claude/tdd-guardian/config.json` if it exists.
+- Keep `codex_hooks = true` as a user-level setup requirement; do not edit global config unless explicitly asked.
