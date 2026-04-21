@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|exec_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/tdd-guardian/scripts/pretool_guard.js\"",
+            "statusMessage": "TDD Guardian checking release command",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/tdd-guardian/scripts/codechange_gate.js\"",
+            "statusMessage": "TDD Guardian checking source changes",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}

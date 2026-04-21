@@ -1,0 +1,10 @@
+{
+  "name": "tdd-guardian-codex-plugin",
+  "version": "0.6.5-codex.1",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test",
+    "validate": "node tests/validate-plugin.test.js"
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Guardian"
+  short_description: "Strict TDD workflow and gate enforcement for Codex"
+  default_prompt: "Use TDD Guardian to plan, test, implement, and verify this change with strict quality gates."
