@@ -62,3 +62,42 @@ All tests must have at least one Level 1-5 (behavior) assertion. Tests with only
 2. List required tools and skills in frontmatter
 3. Reference in `commands/tdd-guardian-workflow.md` if part of the workflow
 4. Update `README.md`
+
+## Prerequisites
+
+- Node.js 18+ (hooks run via `node`; no package manager required — scripts are plain Node, no `npm install` step)
+- Claude Code 1.0 or later (for `${CLAUDE_PLUGIN_ROOT}` expansion and `TaskCompleted` hook support)
+- `jq` (optional, used for JSON validation snippets below)
+
+## Development
+
+### Testing hooks locally
+
+The hooks read JSON payloads from stdin. Feed a sample payload to exercise them:
+
+```bash
+# PreToolUse — simulate a blocked `git commit` attempt
+echo '{"tool_name":"Bash","tool_input":{"command":"git commit -m wip"},"cwd":"'"$PWD"'"}' \
+  | node scripts/tdd-guardian/pretool_guard.js
+
+# TaskCompleted — trigger the gate runner
+echo '{"cwd":"'"$PWD"'"}' \
+  | node scripts/tdd-guardian/taskcompleted_gate.js
+```
+
+Exit code `0` = allow; non-zero = block. stdout carries any message surfaced to Claude Code.
+
+For end-to-end testing, install the plugin into a throwaway project, run `/tdd-guardian-init`, then attempt a commit — the hook should block until gates pass.
+
+### JSON validation
+
+Validate the plugin manifests before release:
+
+```bash
+jq . .claude-plugin/plugin.json
+jq . hooks/hooks.json
+jq . config/config.json
+jq . .claude-plugin/marketplace.json  # if present in this repo
+```
+
+Any parse error fails fast. No separate test framework or build step exists for the plugin itself — the TDD workflow it enforces operates on target projects, not on the plugin's own source.

@@ -1,6 +1,17 @@
 ---
 name: tdd-guardian-workflow
-description: Run strict TDD orchestration via specialized subagents
+description: |
+  Run strict TDD orchestration via specialized subagents.
+
+  <example>
+  user: /tdd-guardian-workflow add a rate limiter to the /login endpoint that blocks after 5 failed attempts in 10 minutes
+  assistant: Running the TDD Guardian workflow. Dispatching tdd-planner to scope work items, then tdd-test-designer to author failing behavior tests, tdd-implementer to make them pass in small batches, tdd-coverage-auditor to enforce 100% thresholds, tdd-mutation-auditor if enabled, and tdd-reviewer for final quality review. Halting immediately if any gate fails; no commits before green.
+  </example>
+
+  <example>
+  user: /tdd-guardian-workflow
+  assistant: $ARGUMENTS is empty. Using AskUserQuestion to elicit: "What task or feature would you like TDD Guardian to implement? Please describe it in plain language." Once the user replies, I'll treat their answer as the task description and proceed through planner → test-designer → implementer → coverage-auditor → (mutation-auditor) → reviewer.
+  </example>
 argument-hint: "<task description>"
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion
 ---
