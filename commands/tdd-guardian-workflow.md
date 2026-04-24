@@ -19,7 +19,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 model: inherit
 ---
 
-Orchestrate the full TDD Guardian pipeline by chaining the seven focused commands.
+Orchestrate the full TDD Guardian pipeline by chaining the six focused commands (plan, design-tests, implement, audit-coverage, audit-mutation, review). The separate `/tdd-guardian:status` command is for read-only inspection and is not part of the workflow chain.
 
 ## Mandatory rules
 

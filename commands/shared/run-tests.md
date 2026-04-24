@@ -28,7 +28,7 @@ Do NOT proceed to the test command.
 
 ### Step 2 — Run the test command
 
-Invoke `{testCommand}` via Bash from the workspace root. Always capture BOTH stdout and stderr. Set a reasonable timeout (600000 ms is fine for most suites). Do not run in background — calling commands need the result synchronously.
+Invoke `{testCommand}` via Bash from the workspace root. Always capture BOTH stdout and stderr. Set a 600000 ms (10 min) timeout. Do not run in background — calling commands need the result synchronously.
 
 ### Step 3 — Classify the exit code
 
