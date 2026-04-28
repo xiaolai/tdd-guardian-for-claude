@@ -172,4 +172,4 @@ skills/
 
 ## License
 
-MIT
+ISC

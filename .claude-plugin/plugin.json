@@ -1,11 +1,11 @@
 {
   "name": "tdd-guardian",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "TDD Guardian \u2014 enforces strict test-driven development discipline in Claude Code with quality gates, coverage enforcement, and mutation testing",
   "author": {
     "name": "xiaolai"
   },
-  "license": "MIT",
+  "license": "ISC",
   "repository": "https://github.com/xiaolai/tdd-guardian-for-claude",
   "keywords": [
     "tdd",
