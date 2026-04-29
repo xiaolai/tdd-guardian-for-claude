@@ -30,6 +30,8 @@ Then install:
 /plugin install tdd-guardian@xiaolai
 ```
 
+> **Install fails with "Plugin not found in marketplace 'xiaolai'"?** Your local marketplace clone is stale. Run `claude plugin marketplace update xiaolai` and retry — `plugin install` does not auto-refresh.
+
 | Scope | Command | Effect |
 |-------|---------|--------|
 | **User** (default) | `/plugin install tdd-guardian@xiaolai` | Available in all your projects |
