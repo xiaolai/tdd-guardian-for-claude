@@ -1,5 +1,7 @@
 # tdd-guardian
 
+[![Validated by NLPM](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/xiaolai/tdd-guardian-for-claude/main/nlpm-badge.json)](https://github.com/xiaolai/tdd-guardian-for-claude/blob/main/nlpm-badge.json)
+
 TDD Guardian for Claude Code — enforces strict test-driven development discipline with automated quality gates.
 
 ## What it does
