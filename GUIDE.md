@@ -32,7 +32,7 @@ Any failed gate halts the pipeline; the user fixes the evidence surfaced by the 
 ### 1. Initialize (once per project)
 
 ```
-/tdd-guardian:tdd-guardian-init
+/tdd-guardian:init
 ```
 
 The init command globs for a manifest (`package.json` in this example), detects Vitest, and proposes:
@@ -159,7 +159,7 @@ Reads `state.json` + globs recent artifacts. Zero agents dispatched, zero comman
 All of the above can be chained with one command:
 
 ```
-/tdd-guardian-workflow validate JWT tokens against a JWKS endpoint...
+/tdd-guardian:workflow validate JWT tokens against a JWKS endpoint...
 ```
 
 It invokes the seven focused commands in order, halts at the first gate failure, and persists every artifact to `.claude/tdd-guardian/`.
@@ -170,7 +170,7 @@ It invokes the seven focused commands in order, halts at the first gate failure,
 
 | Kind | Count | Role |
 |------|-------|------|
-| Entry commands | 2 | `tdd-guardian-init`, `tdd-guardian-workflow` |
+| Entry commands | 2 | `init`, `workflow` |
 | Focused commands | 7 | `plan`, `design-tests`, `implement`, `audit-coverage`, `audit-mutation`, `review`, `status` |
 | Shared partials | 5 | `load-config`, `detect-stack`, `run-tests`, `parse-coverage`, `parse-mutation` |
 
@@ -218,7 +218,7 @@ A: Set the env var named in `bypassEnv` (default `TDD_GUARD_BYPASS`) to a truthy
 
 ### Q: Can I use this for a non-Node project?
 
-A: Yes. The `detect-stack` partial supports Node, Python, Go, and Rust. `tdd-guardian-init` detects your stack and proposes the right commands. All commands and agents are language-agnostic; only the stack-specific defaults differ.
+A: Yes. The `detect-stack` partial supports Node, Python, Go, and Rust. `/tdd-guardian:init` detects your stack and proposes the right commands. All commands and agents are language-agnostic; only the stack-specific defaults differ.
 
 ### Q: What counts as a "wiring-only" test?
 
@@ -256,7 +256,7 @@ Checks:
 
 Symptoms: every command stops with "TDD Guardian config not found".
 
-Fix: run `/tdd-guardian:tdd-guardian-init`. Do NOT write the config by hand unless you know exactly which fields are required — `load-config.md` enforces all required fields and will reject partial configs.
+Fix: run `/tdd-guardian:init`. Do NOT write the config by hand unless you know exactly which fields are required — `load-config.md` enforces all required fields and will reject partial configs.
 
 ### Plan missing when design-tests runs
 

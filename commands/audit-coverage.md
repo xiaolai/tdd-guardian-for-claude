@@ -1,5 +1,5 @@
 ---
-name: tdd-guardian-audit-coverage
+name: audit-coverage
 description: |
   Dispatch the tdd-coverage-auditor agent to run the coverage command, compare against thresholds, and list uncovered branches with proposed tests.
 

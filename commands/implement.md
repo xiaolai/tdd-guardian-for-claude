@@ -1,5 +1,5 @@
 ---
-name: tdd-guardian-implement
+name: implement
 description: |
   Dispatch the tdd-implementer agent for ONE work item — red, green, refactor — then verify with the project's test command.
 
@@ -78,7 +78,7 @@ Append to `.claude/tdd-guardian/state.json` (create if missing) a record:
 }
 ```
 
-This file is already in `.gitignore` (per `tdd-guardian-init`).
+This file is already in `.gitignore` (per `/tdd-guardian:init`).
 
 ## Output format
 

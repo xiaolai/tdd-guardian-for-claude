@@ -1,5 +1,5 @@
 ---
-name: tdd-guardian-plan
+name: plan
 description: |
   Dispatch the tdd-planner agent to break a task into work items, acceptance criteria, and required test targets. Does NOT write code or tests.
 

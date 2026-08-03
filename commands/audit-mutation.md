@@ -1,5 +1,5 @@
 ---
-name: tdd-guardian-audit-mutation
+name: audit-mutation
 description: |
   Dispatch the tdd-mutation-auditor agent to run mutation testing and list surviving mutants. Skips cleanly if `requireMutation=false` or the tool is not installed.
 
@@ -12,7 +12,7 @@ description: |
   <example>
   user: /tdd-guardian:audit-mutation
   assistant: |
-    `requireMutation=false` in config. I respond with: "Mutation gate disabled (requireMutation=false). To enable, run /tdd-guardian:tdd-guardian-init or edit .claude/tdd-guardian/config.json." and stop — no dispatch, no tool install prompts.
+    `requireMutation=false` in config. I respond with: "Mutation gate disabled (requireMutation=false). To enable, run /tdd-guardian:init or edit .claude/tdd-guardian/config.json." and stop — no dispatch, no tool install prompts.
   </example>
 argument-hint: ""
 allowed-tools: Read, Bash, Glob, Grep, Task
@@ -33,7 +33,7 @@ If `requireMutation` is `false` or missing, respond:
 
 ```
 Mutation gate disabled (requireMutation=false).
-To enable: run /tdd-guardian:tdd-guardian-init, or set requireMutation=true and mutationCommand in .claude/tdd-guardian/config.json.
+To enable: run /tdd-guardian:init, or set requireMutation=true and mutationCommand in .claude/tdd-guardian/config.json.
 ```
 
 And STOP. Do not dispatch the agent.

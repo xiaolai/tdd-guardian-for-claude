@@ -1,5 +1,5 @@
 ---
-name: tdd-guardian-status
+name: status
 description: |
   Read-only status report — shows last-run coverage %, mutation score, review verdict, and per-work-item state from `.claude/tdd-guardian/state.json`. Does NOT run any agent, test, or gate.
 
@@ -12,7 +12,7 @@ description: |
   <example>
   user: /tdd-guardian:status
   assistant: |
-    `.claude/tdd-guardian/state.json` does not exist. I respond with: "No TDD Guardian runs recorded yet. Start with /tdd-guardian:plan or /tdd-guardian:tdd-guardian-workflow." and stop.
+    `.claude/tdd-guardian/state.json` does not exist. I respond with: "No TDD Guardian runs recorded yet. Start with /tdd-guardian:plan or /tdd-guardian:workflow." and stop.
   </example>
 argument-hint: ""
 allowed-tools: Read, Glob
@@ -25,11 +25,11 @@ Read-only status reporter. No agents dispatched. No commands run.
 
 ### Step 1 — Load config (soft)
 
-Unlike other commands, DO NOT hard-fail on missing config — the user may be invoking `/tdd-guardian:status` to diagnose exactly that. Try `commands/shared/load-config.md`, but if it stops, downgrade to: `Config missing or disabled. Run /tdd-guardian:tdd-guardian-init to initialize.` and continue rendering whatever state exists.
+Unlike other commands, DO NOT hard-fail on missing config — the user may be invoking `/tdd-guardian:status` to diagnose exactly that. Try `commands/shared/load-config.md`, but if it stops, downgrade to: `Config missing or disabled. Run /tdd-guardian:init to initialize.` and continue rendering whatever state exists.
 
 ### Step 2 — Read state
 
-Try to read `.claude/tdd-guardian/state.json`. If missing, respond: `No TDD Guardian runs recorded yet. Start with /tdd-guardian:plan or /tdd-guardian:tdd-guardian-workflow.` and STOP.
+Try to read `.claude/tdd-guardian/state.json`. If missing, respond: `No TDD Guardian runs recorded yet. Start with /tdd-guardian:plan or /tdd-guardian:workflow.` and STOP.
 
 If present, parse it. Expected keys:
 - `workItems` — map of WI-N → `{status, testFiles, sourceFiles, updatedAt}`

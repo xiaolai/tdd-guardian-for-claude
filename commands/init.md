@@ -1,5 +1,5 @@
 ---
-name: tdd-guardian-init
+name: init
 description: |
   Initialize TDD Guardian for this workspace (strict test and coverage gates).
 
@@ -9,7 +9,7 @@ description: |
   </example>
 
   <example>
-  user: /tdd-guardian:tdd-guardian-init
+  user: /tdd-guardian:init
   assistant: [Globs for pyproject.toml, finds it with pytest configured] Detected a Python project using pytest. Proposing: testCommand="pytest", coverageCommand="pytest --cov --cov-report=json:coverage.json", coverageSummaryPath="coverage.json", enabled=true with 100% thresholds. Confirming before writing .claude/tdd-guardian/config.json.
   </example>
 argument-hint: "[optional test command hints]"

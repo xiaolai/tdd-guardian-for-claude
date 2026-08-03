@@ -50,6 +50,15 @@ Run `/tdd-guardian:init` inside your project to generate `.claude/tdd-guardian/c
 |---------|-------------|
 | `/tdd-guardian:init` | Initialize TDD Guardian config for the current project |
 | `/tdd-guardian:workflow` | Run the full TDD workflow with specialized subagents |
+| `/tdd-guardian:plan` | Break a task into work items with acceptance criteria |
+| `/tdd-guardian:design-tests` | Produce a behavior-driven test matrix for a plan |
+| `/tdd-guardian:implement` | Red/green/refactor one work item, then verify |
+| `/tdd-guardian:audit-coverage` | Run the coverage gate and list uncovered branches |
+| `/tdd-guardian:audit-mutation` | Run mutation testing and list surviving mutants |
+| `/tdd-guardian:review` | Final code + test quality review |
+| `/tdd-guardian:status` | Report gate freshness from the recorded state |
+
+> **Upgrading from 0.7.2:** command names lost their redundant prefix in 0.7.3. `/tdd-guardian:tdd-guardian-init` and `/tdd-guardian:tdd-guardian-workflow` are now `/tdd-guardian:init` and `/tdd-guardian:workflow`. The other seven commands were documented under the short names all along and only start working in 0.7.3.
 
 ## How it works
 
@@ -154,9 +163,16 @@ agents/
   tdd-coverage-auditor.md Coverage gate enforcement specialist
   tdd-mutation-auditor.md Mutation testing specialist
   tdd-reviewer.md         Final code + test quality reviewer
-commands/
-  tdd-guardian-init.md    /init command definition
-  tdd-guardian-workflow.md /workflow command definition
+commands/                 File basename = command name
+  init.md                 /tdd-guardian:init
+  plan.md                 /tdd-guardian:plan
+  design-tests.md         /tdd-guardian:design-tests
+  implement.md            /tdd-guardian:implement
+  audit-coverage.md       /tdd-guardian:audit-coverage
+  audit-mutation.md       /tdd-guardian:audit-mutation
+  review.md               /tdd-guardian:review
+  status.md               /tdd-guardian:status
+  workflow.md             /tdd-guardian:workflow
 config/
   config.json             Default configuration template
 scripts/

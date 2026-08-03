@@ -1,16 +1,16 @@
 ---
-name: tdd-guardian-workflow
+name: workflow
 description: |
   Run strict TDD orchestration by chaining the six focused commands: plan → design-tests → implement (per WI) → audit-coverage → audit-mutation → review. Halts immediately on any gate failure. No commits before green.
 
   <example>
-  user: /tdd-guardian-workflow add a rate limiter to the /login endpoint that blocks after 5 failed attempts in 10 minutes
+  user: /tdd-guardian:workflow add a rate limiter to the /login endpoint that blocks after 5 failed attempts in 10 minutes
   assistant: |
     Running the full workflow by invoking the focused commands in sequence: /tdd-guardian:plan, then /tdd-guardian:design-tests on the plan, then /tdd-guardian:implement for each work item (stopping on any verification failure), then /tdd-guardian:audit-coverage, /tdd-guardian:audit-mutation (if requireMutation), and /tdd-guardian:review. I halt and return as soon as any gate fails; no commit, push, or PR commands are executed.
   </example>
 
   <example>
-  user: /tdd-guardian-workflow
+  user: /tdd-guardian:workflow
   assistant: |
     $ARGUMENTS is empty. I use AskUserQuestion to elicit a plain-language task description, then dispatch the chain starting at /tdd-guardian:plan.
   </example>
@@ -122,7 +122,7 @@ The TaskCompleted hook may still run the gate runner on commit; use `TDD_GUARD_B
 
 | Where | What the workflow does |
 |-------|------------------------|
-| Config missing | Stop before step 2; point at `/tdd-guardian:tdd-guardian-init`. |
+| Config missing | Stop before step 2; point at `/tdd-guardian:init`. |
 | Planner empty | Stop after step 2. |
 | Wiring-only matrix after retries | Stop after step 3. |
 | Verification fail after one retry | Stop after step 4, pointing at failing tests. |

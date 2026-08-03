@@ -1,5 +1,5 @@
 ---
-name: tdd-guardian-review
+name: review
 description: |
   Dispatch the tdd-reviewer agent for a final code + test-quality review. Classifies every expect() call as behavior vs wiring, flags mocked internal modules, and reports missing tests.
 

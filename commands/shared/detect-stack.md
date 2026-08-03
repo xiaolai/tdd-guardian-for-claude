@@ -3,11 +3,11 @@ description: "Shared: detect project language/stack from manifest files, propose
 user-invocable: false
 ---
 <!-- Shared partial: language/stack detection -->
-<!-- Referenced by: tdd-guardian-init (primary), and any command that needs to infer defaults when config is incomplete. Do not use standalone. -->
+<!-- Referenced by: init (primary), and any command that needs to infer defaults when config is incomplete. Do not use standalone. -->
 
 ## Purpose
 
-Detect the project's language, test runner, coverage tool, and mutation tool from manifest files in the workspace root. Used by `/tdd-guardian:tdd-guardian-init` to propose defaults; also used as a sanity check by other commands when invoked with an incomplete config.
+Detect the project's language, test runner, coverage tool, and mutation tool from manifest files in the workspace root. Used by `/tdd-guardian:init` to propose defaults; also used as a sanity check by other commands when invoked with an incomplete config.
 
 ## Detection priority (first match wins)
 
@@ -98,4 +98,4 @@ Return an object with these fields for the caller:
 }
 ```
 
-The caller (typically `/tdd-guardian:tdd-guardian-init`) SHOULD present these defaults to the user via AskUserQuestion before writing config. Never silently overwrite an existing config.
+The caller (typically `/tdd-guardian:init`) SHOULD present these defaults to the user via AskUserQuestion before writing config. Never silently overwrite an existing config.

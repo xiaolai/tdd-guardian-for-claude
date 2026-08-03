@@ -3,7 +3,7 @@ description: "Shared: parse coverage output into normalized metrics across Jest/
 user-invocable: false
 ---
 <!-- Shared partial: coverage parser -->
-<!-- Referenced by: tdd-guardian-audit-coverage, tdd-guardian-status, tdd-guardian-workflow. Do not use standalone. -->
+<!-- Referenced by: audit-coverage, status, workflow. Do not use standalone. -->
 
 ## Purpose
 
@@ -21,7 +21,7 @@ Coverage summary not found at {coverageSummaryPath}.
 Likely causes:
 1. Coverage command has not been run yet — run the full gate first.
 2. Coverage command completed but wrote the output elsewhere — check your runner's coverage reporter config.
-3. The `coverageSummaryPath` in config is wrong — re-run /tdd-guardian:tdd-guardian-init or edit it by hand.
+3. The `coverageSummaryPath` in config is wrong — re-run /tdd-guardian:init or edit it by hand.
 ```
 
 And STOP.

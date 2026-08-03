@@ -3,7 +3,7 @@ description: "Shared: load .claude/tdd-guardian/config.json, validate fields, fa
 user-invocable: false
 ---
 <!-- Shared partial: TDD Guardian configuration loader -->
-<!-- Referenced by: tdd-guardian-plan, tdd-guardian-design-tests, tdd-guardian-implement, tdd-guardian-audit-coverage, tdd-guardian-audit-mutation, tdd-guardian-review, tdd-guardian-status, tdd-guardian-workflow. Do not use standalone. -->
+<!-- Referenced by: plan, design-tests, implement, audit-coverage, audit-mutation, review, status, workflow. Do not use standalone. -->
 
 ## Purpose
 
@@ -24,7 +24,7 @@ If the file does not exist, respond verbatim:
 ```
 TDD Guardian config not found at .claude/tdd-guardian/config.json.
 
-Run `/tdd-guardian:tdd-guardian-init` first to detect your stack and generate the config.
+Run `/tdd-guardian:init` first to detect your stack and generate the config.
 ```
 
 And STOP. Do not attempt to auto-create, guess commands, or proceed with defaults.
@@ -38,7 +38,7 @@ TDD Guardian config at .claude/tdd-guardian/config.json is not valid JSON.
 
 Parser error: {error message}
 
-Fix the file by hand, or delete it and re-run `/tdd-guardian:tdd-guardian-init`.
+Fix the file by hand, or delete it and re-run `/tdd-guardian:init`.
 ```
 
 And STOP.
@@ -69,7 +69,7 @@ Parse and expose the following fields to the calling command:
 ### Step 5 — Validate required fields
 
 For every field marked "required":
-- If missing or empty, respond: `TDD Guardian config is missing required field '{field}'. Re-run /tdd-guardian:tdd-guardian-init or edit .claude/tdd-guardian/config.json.` — then STOP.
+- If missing or empty, respond: `TDD Guardian config is missing required field '{field}'. Re-run /tdd-guardian:init or edit .claude/tdd-guardian/config.json.` — then STOP.
 
 For `coverageThresholds.*`, each must be a number in `[0, 100]`. Out-of-range values are a hard stop.
 

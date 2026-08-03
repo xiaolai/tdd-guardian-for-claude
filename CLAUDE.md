@@ -16,9 +16,16 @@ agents/                   Specialized subagents for TDD workflow
   tdd-coverage-auditor.md Coverage gate enforcement
   tdd-mutation-auditor.md Mutation testing
   tdd-reviewer.md         Final code + test quality review
-commands/                 Slash command definitions
-  tdd-guardian-init.md    /init — initialize config
-  tdd-guardian-workflow.md /workflow — full TDD orchestration
+commands/                 Slash command definitions (file basename = command name)
+  init.md                 /tdd-guardian:init — initialize config
+  plan.md                 /tdd-guardian:plan — break work into items
+  design-tests.md         /tdd-guardian:design-tests — build the test matrix
+  implement.md            /tdd-guardian:implement — red/green one work item
+  audit-coverage.md       /tdd-guardian:audit-coverage — coverage gate
+  audit-mutation.md       /tdd-guardian:audit-mutation — mutation gate
+  review.md               /tdd-guardian:review — final quality review
+  status.md               /tdd-guardian:status — gate freshness report
+  workflow.md             /tdd-guardian:workflow — full TDD orchestration
 config/
   config.json             Default configuration template
 scripts/
@@ -50,6 +57,10 @@ All tests must have at least one Level 1-5 (behavior) assertion. Tests with only
 - Both read config from `.claude/tdd-guardian/config.json` in the project workspace
 - Gate freshness state is written to `.claude/tdd-guardian/state.json`
 
+### Command naming
+
+Claude Code registers a plugin command as `/<plugin-name>:<file-basename>`. Never prefix a command file with `tdd-guardian-` — the plugin namespace is already applied, so `commands/tdd-guardian-plan.md` would register as `/tdd-guardian:tdd-guardian-plan`. Keep the basename bare (`plan.md` → `/tdd-guardian:plan`) and keep the `name:` frontmatter identical to the basename.
+
 ### Adding new skills
 
 1. Create `skills/tdd-guardian/<name>/SKILL.md` with YAML frontmatter
@@ -60,7 +71,7 @@ All tests must have at least one Level 1-5 (behavior) assertion. Tests with only
 
 1. Create `agents/tdd-<name>.md` with YAML frontmatter
 2. List required tools and skills in frontmatter
-3. Reference in `commands/tdd-guardian-workflow.md` if part of the workflow
+3. Reference in `commands/workflow.md` if part of the workflow
 4. Update `README.md`
 
 ## Prerequisites
@@ -87,7 +98,7 @@ echo '{"cwd":"'"$PWD"'"}' \
 
 Exit code `0` = allow; non-zero = block. stdout carries any message surfaced to Claude Code.
 
-For end-to-end testing, install the plugin into a throwaway project, run `/tdd-guardian-init`, then attempt a commit — the hook should block until gates pass.
+For end-to-end testing, install the plugin into a throwaway project, run `/tdd-guardian:init`, then attempt a commit — the hook should block until gates pass.
 
 ### JSON validation
 

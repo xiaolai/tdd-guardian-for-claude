@@ -1,5 +1,5 @@
 ---
-name: tdd-guardian-design-tests
+name: design-tests
 description: |
   Dispatch the tdd-test-designer agent to produce a concrete behavior-driven test matrix for a plan. Rejects wiring-only designs. Does NOT write implementation code.
 

@@ -3,7 +3,7 @@ description: "Shared: execute the configured test command, distinguish runner fa
 user-invocable: false
 ---
 <!-- Shared partial: test execution wrapper -->
-<!-- Referenced by: tdd-guardian-implement, tdd-guardian-audit-coverage, tdd-guardian-workflow. Do not use standalone. -->
+<!-- Referenced by: implement, audit-coverage, workflow. Do not use standalone. -->
 
 ## Purpose
 
