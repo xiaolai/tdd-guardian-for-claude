@@ -46,7 +46,7 @@ The planner MUST NOT:
 - Run shell commands.
 - Commit or push.
 
-Allowed tools per agent frontmatter: `Read, Grep, Glob, LS, TodoWrite`. Verify the agent does not attempt to invoke `Write` on source files or `Bash`.
+Allowed tools per agent frontmatter: `Read, Grep, Glob`. Verify the agent does not attempt to invoke `Write` on source files or `Bash`.
 
 ## Output schema
 

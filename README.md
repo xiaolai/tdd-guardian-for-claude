@@ -1,24 +1,24 @@
 # tdd-guardian
 
 [![Validated by NLPM](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/xiaolai/tdd-guardian-for-claude/main/nlpm-badge.json)](https://github.com/xiaolai/tdd-guardian-for-claude/blob/main/nlpm-badge.json)
+[![nlpm score 100/100](https://img.shields.io/badge/nlpm%20score-100%2F100-success)](https://github.com/xiaolai/tdd-guardian-for-claude/blob/main/nlpm-score.json)
+[![tests 162](https://img.shields.io/badge/tests-162%20passing-success)](https://github.com/xiaolai/tdd-guardian-for-claude/tree/main/tests)
 
-TDD Guardian for Claude Code — enforces strict test-driven development discipline with automated quality gates.
+TDD Guardian for Claude Code — enforces strict test-driven development discipline with automated quality gates across **unit, integration, e2e, and contract test lanes**.
 
 ## What it does
 
-TDD Guardian ensures Claude Code follows rigorous TDD practices:
-
-- **Test-first workflow**: tests are written before or alongside implementation, never after
-- **Coverage gates**: blocks commits when coverage drops below thresholds (default: 100% lines/functions/branches/statements)
-- **Mutation testing**: validates test strength by catching surviving mutants (optional)
-- **Behavior-driven test quality**: rejects wiring-only tests that assert mock calls without verifying observable behavior
-- **Pre-commit enforcement**: hooks block `git commit`, `git push`, and `gh pr create` until all gates pass
+- **Test lanes** — each test tier gets its own command, trigger, and coverage participation. A 90-second browser suite gates `git push`; it does not run after every task.
+- **Verified setup** — `/tdd-guardian:init` reads your CI config first, then dry-run probes every proposed command before writing it. A lane that discovers zero tests is reported, not configured.
+- **Coverage gates** — 9 report formats parsed and merged, with an exact per-line union when the formats allow it and an explicitly-flagged approximation when they do not.
+- **Mutation testing** — optional, per-trigger.
+- **Behavior-driven test quality** — rejects wiring-only tests that assert mock calls without verifying observable behavior.
+- **Commit and push gating** — hooks check that every lane bound to the action has a fresh pass.
+- **Greenfield-aware** — a lane that has never had a test is in *bootstrap*: reported loudly on every run, but not blocking. The strict "zero tests is a failure" rule switches on permanently the moment that lane runs its first test.
 
 Part of the [xiaolai plugin marketplace](https://github.com/xiaolai/claude-plugin-marketplace).
 
 ## Installation
-
-### Install the plugin
 
 Add the marketplace (once):
 
@@ -42,51 +42,95 @@ Then install:
 
 ### Initialize for your project
 
-Run `/tdd-guardian:init` inside your project to generate `.claude/tdd-guardian/config.json`. This auto-detects your stack and configures test/coverage commands.
+Run `/tdd-guardian:init` inside your project. It detects your lanes, probes each one, and writes `.claude/tdd-guardian/config.json`.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/tdd-guardian:init` | Initialize TDD Guardian config for the current project |
-| `/tdd-guardian:workflow` | Run the full TDD workflow with specialized subagents |
+| `/tdd-guardian:init` | Detect and verify test lanes, write config |
+| `/tdd-guardian:probe` | Dry-run every lane to check it resolves and finds tests. Runs no suites |
+| `/tdd-guardian:gate` | Run the lanes for a trigger (`commit`, `push`, a lane name) and refresh gate state |
+| `/tdd-guardian:status` | Per-lane freshness, and whether commit/push is currently blocked |
+| `/tdd-guardian:workflow` | Full TDD workflow with specialized subagents |
 | `/tdd-guardian:plan` | Break a task into work items with acceptance criteria |
-| `/tdd-guardian:design-tests` | Produce a behavior-driven test matrix for a plan |
+| `/tdd-guardian:design-tests` | Produce a behavior-driven test matrix |
 | `/tdd-guardian:implement` | Red/green/refactor one work item, then verify |
 | `/tdd-guardian:audit-coverage` | Run the coverage gate and list uncovered branches |
 | `/tdd-guardian:audit-mutation` | Run mutation testing and list surviving mutants |
 | `/tdd-guardian:review` | Final code + test quality review |
-| `/tdd-guardian:status` | Report gate freshness from the recorded state |
 
-> **Upgrading from 0.7.2:** command names lost their redundant prefix in 0.7.3. `/tdd-guardian:tdd-guardian-init` and `/tdd-guardian:tdd-guardian-workflow` are now `/tdd-guardian:init` and `/tdd-guardian:workflow`. The other seven commands were documented under the short names all along and only start working in 0.7.3.
+## Lanes
+
+A **lane** is one test tier with its own command, trigger, and coverage participation.
+
+| Lane | Boundary | Typical runtime | Default trigger | Coverage |
+|------|----------|-----------------|-----------------|----------|
+| `unit` | In-process | < 60s | `taskCompleted`, `commit` | include |
+| `integration` | Real adapters — DB, HTTP, containers | 1–5 min | `commit` | include |
+| `e2e` | The deployed system through its real interface | 5–30 min | `push` | none |
+| `contract` | The agreement between two services | varies | consumer `commit`, provider `push` | none |
+
+Triggers:
+
+- **`taskCompleted`** — the hook *runs* these lanes when Claude finishes a task.
+- **`commit`** — checked for *freshness* before `git commit`.
+- **`push`** — checked before `git push`, `gh pr create`, and publish commands. **`push` subsumes `commit`.**
+- **`manual`** — only via `/tdd-guardian:gate <lane>`.
+
+## Language support
+
+`/tdd-guardian:init` reads your CI config first — the commands maintainers actually run — then confirms against manifests, then verifies by dry-run probe. The `tooling-catalog` skill carries per-language runners, coverage tools, formats, mutation tools, and probe commands for:
+
+| Reference | Languages |
+|-----------|-----------|
+| `js-ts` | JavaScript, TypeScript, Node.js, Deno, Bun |
+| `python` | Python |
+| `jvm` | Java, Kotlin, Scala, Clojure, Groovy |
+| `dotnet` | C#, F#, VB.NET |
+| `native` | C, C++, Rust, Go, Zig, Swift, Objective-C |
+| `dynamic` | Ruby, PHP, Perl, Lua |
+| `functional` | Elixir, Erlang, Haskell, OCaml |
+| `data-mobile` | Dart/Flutter, R, Julia, Shell |
+| `e2e` | Playwright, Cypress, WebdriverIO, testcontainers, Pact, k6, Appium, Maestro, and more |
+
+A language outside the catalog still works — the plugin reads your CI config and asks. If its coverage tool can emit LCOV or Cobertura, coverage gating works with no plugin change.
+
+### Coverage formats
+
+`istanbul-summary`, `istanbul-final`, `lcov`, `cobertura`, `jacoco`, `clover`, `coverage-py`, `go-cover`, `simplecov`.
+
+When several lanes contribute coverage, reports carrying per-line detail merge as an **exact union**. Summary-only formats fall back to a weighted average, and the gate says so — a weighted number is not quoted as if it were a union.
+
+A dimension the tool does not measure is `null`, not zero, and produces a warning rather than a failure. go-cover reports no functions or branches; coverage.py reports no functions.
 
 ## How it works
 
 ### The TDD workflow (`/tdd-guardian:workflow`)
 
-Runs 6 specialized subagents in sequence:
+Six specialized subagents in sequence:
 
-1. **tdd-planner** — breaks the task into work items with acceptance criteria
-2. **tdd-test-designer** — designs behavior-driven tests with explicit assertion strategies
-3. **tdd-implementer** — implements in small batches with test-first discipline
-4. **tdd-coverage-auditor** — enforces coverage thresholds, identifies gaps
-5. **tdd-mutation-auditor** — validates test robustness via mutation testing (when enabled)
-6. **tdd-reviewer** — findings-first review auditing both code and test quality
+1. **tdd-planner** — work items with acceptance criteria
+2. **tdd-test-designer** — a test matrix with a lane and an assertion level per case
+3. **tdd-implementer** — small batches, verified against the fast `taskCompleted` lanes
+4. **tdd-coverage-auditor** — runs contributing lanes, merges, enforces thresholds
+5. **tdd-mutation-auditor** — mutation testing when enabled
+6. **tdd-reviewer** — findings-first review of code, test quality, and lane assignment
 
-The workflow stops if any gate fails. No commit/push is allowed until all gates are green.
+The workflow stops at the first gate failure.
 
 ### Hook enforcement
 
-TDD Guardian installs two hooks:
+- **PreToolUse** (`pretool_guard.js`) — classifies each Bash command as commit-class or push-class, then checks that every lane bound to that action has a fresh pass. With `blockCommitWithoutFreshGate: true` it **denies** by default; set `staleGateAction: "warn"` to warn instead. Both are `false`/`deny` out of the box, so nothing blocks until you opt in.
+- **TaskCompleted** (`taskcompleted_gate.js`) — runs the `taskCompleted` lanes, merges coverage, runs the mutation gate if bound, and records per-lane state.
 
-- **PreToolUse hook** (`pretool_guard.js`): intercepts `git commit`, `git push`, `gh pr create`, and `npm publish` commands. Blocks them unless quality gates have passed recently (configurable freshness window).
-- **TaskCompleted hook** (`taskcompleted_gate.js`): runs tests, coverage checks, and mutation tests automatically when a task completes. Updates gate state on success.
+Freshness uses `gateFreshnessMinutes`, and with `smartStaleness` an expired pass stays valid while no source file has changed — checked against **both** committed changes and the working tree.
 
 ### Test quality philosophy
 
-TDD Guardian enforces **behavior-driven testing** — tests must verify what code *does* (outputs, side effects, state changes), not *how* it does it (which internal functions it calls).
+Two independent axes.
 
-The assertion hierarchy:
+**How strongly does this test verify anything** — the assertion hierarchy:
 
 | Level | Type | Quality |
 |-------|------|---------|
@@ -100,95 +144,148 @@ The assertion hierarchy:
 
 Tests with only Level 6-7 assertions are flagged and must be upgraded.
 
+**At what level is it verified** — the lane. The rule that settles borderline cases:
+
+> If the test would still pass when the real collaborator is broken, it belongs one lane higher.
+
+Mocking a boundary creates an obligation: a named integration-lane test must cover the real path. The reviewer checks that the pairing exists.
+
 ## Configuration
 
-Config lives at `.claude/tdd-guardian/config.json`:
+`.claude/tdd-guardian/config.json`:
 
 ```json
 {
+  "schemaVersion": 2,
   "enabled": true,
-  "enforceOnTaskCompleted": true,
-  "blockCommitWithoutFreshGate": true,
+  "enforceOnTaskCompleted": false,
+  "blockCommitWithoutFreshGate": false,
+  "staleGateAction": "deny",
   "gateFreshnessMinutes": 120,
+  "smartStaleness": true,
   "bypassEnv": "TDD_GUARD_BYPASS",
   "preflightCommand": "pnpm exec tsc --noEmit",
-  "testCommand": "pnpm test",
-  "coverageCommand": "pnpm test -- --coverage",
-  "coverageSummaryPath": "coverage/coverage-summary.json",
-  "coverageThresholds": {
-    "lines": 100,
-    "functions": 100,
-    "branches": 100,
-    "statements": 100
-  },
+  "lanes": [
+    {
+      "name": "unit",
+      "command": "pnpm exec vitest run --coverage",
+      "gateOn": ["taskCompleted", "commit"],
+      "coverage": "include",
+      "coverageSummaryPath": "coverage/coverage-summary.json",
+      "probeCommand": "pnpm exec vitest list",
+      "timeoutMs": 600000
+    },
+    {
+      "name": "e2e",
+      "setupCommand": "docker compose -f docker-compose.test.yml up -d --wait",
+      "command": "pnpm exec playwright test --project=chromium",
+      "teardownCommand": "docker compose -f docker-compose.test.yml down -v",
+      "gateOn": ["push"],
+      "coverage": "none",
+      "timeoutMs": 1800000
+    }
+  ],
+  "coverageThresholds": { "lines": 100, "functions": 100, "branches": 100, "statements": 100 },
+  "coverageMode": "absolute",
   "requireMutation": false,
-  "mutationCommand": ""
+  "mutationCommand": "",
+  "mutationGateOn": ["taskCompleted"]
 }
 ```
+
+### Top-level settings
 
 | Setting | Description | Default |
 |---------|-------------|---------|
 | `enabled` | Master switch | `true` |
-| `enforceOnTaskCompleted` | Run gates on task completion | `true` |
-| `blockCommitWithoutFreshGate` | Block commits without recent passing gates | `true` |
-| `gateFreshnessMinutes` | How long a gate pass remains valid | `120` |
-| `bypassEnv` | Environment variable to bypass all gates | `TDD_GUARD_BYPASS` |
-| `preflightCommand` | Run before tests (e.g., type checking) | `""` |
-| `testCommand` | Test runner command | `"pnpm test"` |
-| `coverageCommand` | Coverage runner command | `"pnpm test -- --coverage"` |
-| `coverageSummaryPath` | Path to coverage JSON summary | `"coverage/coverage-summary.json"` |
-| `coverageThresholds` | Required coverage percentages | `100` for all |
-| `requireMutation` | Enable mutation testing gate | `false` |
-| `mutationCommand` | Mutation test runner command | `""` |
+| `lanes` | Test lanes — at least one required | — |
+| `enforceOnTaskCompleted` | Run `taskCompleted` lanes on task completion | `false` |
+| `blockCommitWithoutFreshGate` | Check lane freshness before commit/push | `false` |
+| `staleGateAction` | `"deny"` or `"warn"` on a stale gate | `"deny"` |
+| `gateFreshnessMinutes` | How long a passing lane stays fresh | `120` |
+| `smartStaleness` | Keep an expired pass valid while no source changed | `true` |
+| `bypassEnv` | Env var to bypass all gates | `TDD_GUARD_BYPASS` |
+| `preflightCommand` | Runs once before any lane (e.g. a type check) | `""` |
+| `coverageThresholds` | Applied to the **merged** total | `100` for all |
+| `coverageMode` | `"absolute"` or `"no-decrease"` | `"absolute"` |
+| `requireMutation` | Enable the mutation gate | `false` |
+| `mutationCommand` | Mutation test runner | `""` |
+| `mutationGateOn` | Triggers the mutation gate runs on | `["taskCompleted"]` |
+
+### Lane settings
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `name` | Unique slug | required |
+| `command` | Runs this lane's tests | required |
+| `gateOn` | `taskCompleted`, `commit`, `push`, `manual` | `["taskCompleted","commit"]` |
+| `coverage` | `"include"` or `"none"` | `"none"` |
+| `coverageSummaryPath` | Required with `"include"`; unique per lane | — |
+| `coverageReportCommand` | Extra report step for two-step coverage tools | `""` |
+| `setupCommand` / `teardownCommand` | Start/stop services; teardown always runs | `""` |
+| `probeCommand` | Dry-run listing for `/tdd-guardian:probe` | `""` |
+| `timeoutMs` | Lane timeout | `600000` |
+| `optional` | Record failures without blocking | `false` |
 
 ### Bypass
-
-Set the bypass environment variable to skip all gates temporarily:
 
 ```bash
 TDD_GUARD_BYPASS=1 claude
 ```
 
+## Upgrading
+
+**From 0.7.x (schema v1).** Existing configs keep working unchanged — the hooks migrate `testCommand`/`coverageCommand` in memory to a single `unit` lane, preserving the original two-command behaviour exactly. Nothing to do.
+
+To adopt lanes, re-run `/tdd-guardian:init`. It detects your integration and e2e suites and shows a diff before writing.
+
+Two behaviour changes worth knowing:
+
+- **PreToolUse now denies rather than warns** when `blockCommitWithoutFreshGate` is `true`. The old behaviour always warned regardless, which contradicted the setting's name. Set `staleGateAction: "warn"` to keep warning.
+- **Coverage parsing now handles all 9 formats.** Previously only Istanbul JSON was parsed in the hook, so Go, Rust, and Python projects saw the gate fail with "coverage summary not found or invalid" despite a valid report.
+
+> **From 0.7.2:** command names lost their redundant prefix in 0.7.3. `/tdd-guardian:tdd-guardian-init` is now `/tdd-guardian:init`.
+
 ## Project structure
 
 ```
-.claude-plugin/
-  plugin.json             Plugin metadata
-hooks/
-  hooks.json              Hook registration (auto-discovered by Claude Code)
-agents/
-  tdd-planner.md          Work item planning specialist
-  tdd-test-designer.md    Behavior-driven test design specialist
-  tdd-implementer.md      Small-batch implementation specialist
-  tdd-coverage-auditor.md Coverage gate enforcement specialist
-  tdd-mutation-auditor.md Mutation testing specialist
-  tdd-reviewer.md         Final code + test quality reviewer
-commands/                 File basename = command name
-  init.md                 /tdd-guardian:init
-  plan.md                 /tdd-guardian:plan
-  design-tests.md         /tdd-guardian:design-tests
-  implement.md            /tdd-guardian:implement
-  audit-coverage.md       /tdd-guardian:audit-coverage
-  audit-mutation.md       /tdd-guardian:audit-mutation
-  review.md               /tdd-guardian:review
-  status.md               /tdd-guardian:status
-  workflow.md             /tdd-guardian:workflow
-config/
-  config.json             Default configuration template
-scripts/
-  tdd-guardian/
-    pretool_guard.js      PreToolUse hook — blocks commits without fresh gates
-    taskcompleted_gate.js TaskCompleted hook — runs gates on task completion
-skills/
-  tdd-guardian/
-    init/SKILL.md         Workspace initialization skill
-    workflow/SKILL.md     TDD workflow orchestration skill
-    policy-core/SKILL.md  Global TDD governance policy
-    test-matrix/SKILL.md  Test matrix design skill
-    coverage-gate/SKILL.md Coverage enforcement skill
-    mutation-gate/SKILL.md Mutation testing skill
-    review-gate/SKILL.md  Code + test quality review skill
+.claude-plugin/plugin.json     Plugin metadata
+hooks/hooks.json               Hook registration
+agents/                        Six TDD subagents
+commands/                      Slash commands (basename = command name)
+  init, probe, gate, status, workflow, plan, design-tests,
+  implement, audit-coverage, audit-mutation, review
+  shared/                      Partials: load-config, detect-tooling,
+                               run-lane, parse-coverage, parse-mutation
+config/config.json             Default configuration template
+scripts/tdd-guardian/
+  lib/config.js                Load, migrate v1→v2, validate
+  lib/coverage.js              9-format parser + union/weighted merge
+  lib/lanes.js                 Lane selection, execution, state, freshness
+  lib/exec.js                  Run + classify (runner failure vs test failure)
+  pretool_guard.js             PreToolUse hook
+  taskcompleted_gate.js        TaskCompleted hook
+skills/tdd-guardian/
+  policy-core/                 Global TDD governance policy
+  lane-policy/                 Test-level taxonomy
+  tooling-catalog/             Per-language tooling reference (9 files)
+  test-matrix/                 Test matrix design
+  coverage-gate/               Coverage enforcement
+  mutation-gate/               Mutation testing
+  review-gate/                 Code + test quality review
+  init/, workflow/             Setup and orchestration
+tests/                         node --test suite for the libs and hooks
 ```
+
+## Development
+
+The plugin's own JavaScript is tested with Node's built-in runner — no dependencies, no install step:
+
+```bash
+node --test
+```
+
+162 tests cover every coverage format, config migration and validation, lane selection and freshness, exit-code classification, and both hooks driven end to end through stdin.
 
 ## License
 

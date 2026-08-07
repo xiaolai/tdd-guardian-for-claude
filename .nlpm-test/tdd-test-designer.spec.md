@@ -45,9 +45,19 @@ For each test case in the output, the self-check answer MUST be present or impli
 - No case may list only a Level 6 or Level 7 assertion strategy.
 - No case may have `Assertion strategy: expect(mockX).toHaveBeenCalled` as its sole strategy.
 
+## Lane assignment
+
+Every case MUST carry a `**Lane**` field (`unit`, `integration`, `e2e`, or `contract`). A case missing it is incomplete — lane and assertion level are independent axes and both are required.
+
+Lane correctness check: if the case would still pass with the real collaborator broken, it belongs one lane higher. A case asserting SQL correctness against a mocked driver, or auth rejection against a stubbed guard, MUST be assigned to `integration`.
+
+## Mock-pairing rule
+
+Any case whose `**Mock boundary**` is not "none" MUST also carry a `**Paired integration test**` field naming a specific `integration`-lane case in the same matrix. "An integration test should exist" is not an answer; the paired case must be designed alongside it.
+
 ## Output purity checks
 
-Allowed tools: `Read, Write, Edit, Grep, Glob, LS, TodoWrite`. `Write` is only used to materialize the matrix file (`.claude/tdd-guardian/tests-*.md`); MUST NOT write to `src/` paths or create `.test.*` source files before the implementer runs.
+Allowed tools: `Read, Write, Grep, Glob`. `Write` is only used to materialize the matrix file (`.claude/tdd-guardian/tests-*.md`); MUST NOT write to `src/` paths or create `.test.*` source files before the implementer runs.
 
 ## Output schema
 
@@ -57,9 +67,11 @@ Per unit:
 
 ### Case: <name>
 - **Category**: success | boundary | guard | failure | state | determinism
+- **Lane**: unit | integration | e2e | contract
 - **Input**: ...
 - **Expected output**: ...
 - **Observable side effect**: ...
 - **Assertion strategy**: Level N — ...
 - **Mock boundary**: ... (or "none — real implementation")
+- **Paired integration test**: ... (required when Mock boundary is not "none")
 ```

@@ -1,6 +1,6 @@
 # TDD Guardian — Guide
 
-TDD Guardian enforces strict test-driven development through six specialized agents, five shared partials, seven focused commands, a workflow orchestrator, and two gating hooks. This guide walks through a real-world session, explains the architecture, and answers common questions.
+TDD Guardian enforces strict test-driven development through six specialized agents, five shared partials, nine focused commands, a workflow orchestrator, and two gating hooks. This guide walks through a real-world session, explains the architecture, and answers common questions.
 
 ## The pipeline at a glance
 
@@ -35,15 +35,20 @@ Any failed gate halts the pipeline; the user fixes the evidence surfaced by the 
 /tdd-guardian:init
 ```
 
-The init command globs for a manifest (`package.json` in this example), detects Vitest, and proposes:
+Init reads `.github/workflows/ci.yml` first — it has `test` and `e2e` jobs, so this repo has two lanes. It confirms Vitest from `package.json` and Playwright from `playwright.config.ts`, then probes each: `vitest list` finds 148 tests, `playwright test --list` finds 31.
 
-- `testCommand=pnpm test`
-- `coverageCommand=pnpm test -- --coverage`
-- `coverageSummaryPath=coverage/coverage-summary.json`
-- 100% thresholds for lines/functions/branches/statements
-- `requireMutation=false` (can enable later)
+It proposes:
 
-It writes `.claude/tdd-guardian/config.json` and appends `.claude/tdd-guardian/state.json` to `.gitignore`.
+| Lane | Command | Trigger | Coverage |
+|------|---------|---------|----------|
+| `unit` | `pnpm exec vitest run --coverage` | `taskCompleted`, `commit` | include → `coverage/coverage-summary.json` |
+| `e2e` | `pnpm exec playwright test --project=chromium` | `push` | none — no instrumented build exists |
+
+plus 100% thresholds, `requireMutation=false`, and both blocking switches off.
+
+After you confirm, it writes `.claude/tdd-guardian/config.json` and appends `.claude/tdd-guardian/state.json` to `.gitignore`. Config is committed (shared team configuration); state is per-machine gate history and is not.
+
+Re-verify at any time with `/tdd-guardian:probe` — it re-runs the dry-run listings without executing a suite.
 
 ### 2. Plan
 
@@ -90,7 +95,7 @@ Plan lives at `.claude/tdd-guardian/plan-20260424-094500.md`.
 /tdd-guardian:design-tests .claude/tdd-guardian/plan-20260424-094500.md
 ```
 
-`tdd-test-designer` produces a matrix per work item, with every case specifying assertion strategy (Level 1-5) and mock boundary. The command's wiring-only quality gate re-dispatches up to twice if any case slips through with only Level 6-7 assertions.
+`tdd-test-designer` produces a matrix per work item, with every case specifying a lane, an assertion strategy (Level 1-5), a mock boundary, and — whenever a boundary is mocked — the paired integration-lane case that covers the real path. The command's wiring-only quality gate re-dispatches up to twice if any case slips through with only Level 6-7 assertions.
 
 Matrix lives at `.claude/tdd-guardian/tests-20260424-094800.md`.
 
@@ -120,7 +125,7 @@ If any verification fails, the command lets the user retry once; a second failur
 /tdd-guardian:audit-coverage
 ```
 
-Runs `pnpm test -- --coverage`, normalizes the Istanbul JSON summary, compares against thresholds. On PASS, writes `.claude/tdd-guardian/coverage-20260424-101200.md` and updates `state.json`. On FAIL, lists uncovered branches per file and proposes Level 1-5 tests to close each gap.
+Runs every lane with `coverage: "include"`, merges their reports (union when all carry per-line detail, weighted and flagged otherwise), and compares the merged totals against thresholds. On PASS, writes `.claude/tdd-guardian/coverage-20260424-101200.md` and updates `state.json`. On FAIL, lists uncovered branches per file with the lane each gap belongs in, and proposes Level 1-5 tests to close each.
 
 ### 6. Mutation gate (if enabled)
 
@@ -130,7 +135,7 @@ Runs `pnpm test -- --coverage`, normalizes the Istanbul JSON summary, compares a
 
 With `requireMutation=false`, skipped silently. To enable, edit config and add `mutationCommand=npx stryker run`, install Stryker with a runner plugin, and re-run.
 
-Stryker mutates `<`, `<=`, string literals, etc. Survivors are reported with file:line, mutator type, and a boundary-test fix. The `mutation-gate` skill catalogs common patterns (off-by-one, short-circuit asymmetry, string-literal leaks).
+Stryker mutates `<`, `<=`, string literals, etc. Survivors are reported with file:line, mutator type, and the boundary test that would kill each — the auditor proposes, the implementer writes. The `mutation-gate` skill catalogs common patterns (off-by-one, short-circuit asymmetry, string-literal leaks).
 
 ### 7. Review
 
@@ -162,7 +167,7 @@ All of the above can be chained with one command:
 /tdd-guardian:workflow validate JWT tokens against a JWKS endpoint...
 ```
 
-It invokes the seven focused commands in order, halts at the first gate failure, and persists every artifact to `.claude/tdd-guardian/`.
+It invokes the six focused commands in order, halts at the first gate failure, and persists every artifact to `.claude/tdd-guardian/`.
 
 ## Architecture
 
@@ -171,10 +176,23 @@ It invokes the seven focused commands in order, halts at the first gate failure,
 | Kind | Count | Role |
 |------|-------|------|
 | Entry commands | 2 | `init`, `workflow` |
-| Focused commands | 7 | `plan`, `design-tests`, `implement`, `audit-coverage`, `audit-mutation`, `review`, `status` |
-| Shared partials | 5 | `load-config`, `detect-stack`, `run-tests`, `parse-coverage`, `parse-mutation` |
+| Focused commands | 9 | `plan`, `design-tests`, `implement`, `audit-coverage`, `audit-mutation`, `review`, `status`, `probe`, `gate` |
+| Shared partials | 5 | `load-config`, `detect-tooling`, `run-lane`, `parse-coverage`, `parse-mutation` |
 
-Every focused command dispatches exactly ONE agent (or, for `status`, zero agents). The workflow command chains the focused commands; it does not re-implement their logic.
+Every focused command dispatches exactly ONE agent (or, for `status`, `probe`, and `gate`, zero agents). The workflow command chains the focused commands; it does not re-implement their logic.
+
+### Libraries
+
+The gate logic that both hooks and several commands depend on is implemented once, in plain CommonJS with no dependencies, and tested:
+
+| Module | Role |
+|--------|------|
+| `lib/config.js` | Load, migrate schema v1→v2, validate lanes |
+| `lib/coverage.js` | Parse 9 coverage formats; merge as union or weighted |
+| `lib/lanes.js` | Lane selection by trigger, execution, state, freshness |
+| `lib/exec.js` | Run a command and classify runner failure vs test failure |
+
+Commands should invoke these rather than re-deriving the logic in prose — hand-parsing LCOV or XML in a prompt is where wrong numbers come from.
 
 ### Agents
 
@@ -184,7 +202,7 @@ Every focused command dispatches exactly ONE agent (or, for `status`, zero agent
 | tdd-test-designer | Build behavior-driven test matrices | read + limited write (matrix file only) |
 | tdd-implementer | Red-green-refactor one WI at a time | read + write + test runner |
 | tdd-coverage-auditor | Run coverage, compare, propose tests | read + test runner |
-| tdd-mutation-auditor | Run mutation, list survivors, strengthen tests | read + write test files + mutation runner |
+| tdd-mutation-auditor | Run mutation, list survivors, propose killing tests | read + mutation runner |
 | tdd-reviewer | Classify assertions, flag anti-patterns | read-only |
 
 ### Skills
@@ -192,10 +210,12 @@ Every focused command dispatches exactly ONE agent (or, for `status`, zero agent
 | Skill | Role |
 |-------|------|
 | policy-core | Assertion hierarchy (Level 1-7), mock rules, completion gates |
+| lane-policy | Test-level taxonomy — which behavior belongs at which tier |
+| tooling-catalog | Per-language runners, coverage tools, formats, probes (index + 9 references) |
 | test-matrix | Matrix categories, assertion strategy table, mock decision tree |
-| coverage-gate | Coverage thresholds, test-quality scan, v8 ignore directive audit |
+| coverage-gate | Coverage thresholds, multi-lane merge, test-quality scan, v8 ignore audit |
 | mutation-gate | Per-language tool reference, operator catalog, surviving-mutant patterns |
-| review-gate | Final-review rubric |
+| review-gate | Final-review rubric, including the lane audit |
 | init | Initialization checks |
 | workflow | Workflow orchestration reference |
 
@@ -203,8 +223,8 @@ Every focused command dispatches exactly ONE agent (or, for `status`, zero agent
 
 | Hook | Script | Role |
 |------|--------|------|
-| PreToolUse (Bash matcher) | `pretool_guard.js` | Blocks `git commit/push` when gates are stale |
-| TaskCompleted | `taskcompleted_gate.js` | Optional — runs gate checks on task completion |
+| PreToolUse (Bash matcher) | `pretool_guard.js` | Classifies commit-class vs push-class commands; denies (or warns) when a required lane is stale |
+| TaskCompleted | `taskcompleted_gate.js` | Optional — runs `taskCompleted` lanes, merges coverage, records per-lane state |
 
 ## FAQ
 
@@ -218,7 +238,46 @@ A: Set the env var named in `bypassEnv` (default `TDD_GUARD_BYPASS`) to a truthy
 
 ### Q: Can I use this for a non-Node project?
 
-A: Yes. The `detect-stack` partial supports Node, Python, Go, and Rust. `/tdd-guardian:init` detects your stack and proposes the right commands. All commands and agents are language-agnostic; only the stack-specific defaults differ.
+A: Yes. `/tdd-guardian:init` reads your CI config first — the commands your maintainers actually run — then confirms against manifests and verifies by dry-run probe. The `tooling-catalog` skill carries per-language facts for JS/TS, Python, Java, Kotlin, Scala, Clojure, C#, F#, Go, Rust, C, C++, Zig, Swift, Ruby, PHP, Perl, Lua, Elixir, Erlang, Haskell, OCaml, Dart/Flutter, R, Julia, and Shell.
+
+A language outside the catalog still works — init reads CI and asks. If its coverage tool can emit LCOV or Cobertura, coverage gating works with no plugin change.
+
+### Q: What happens if I run init on an empty repo?
+
+A: It depends which kind of empty, and init distinguishes them:
+
+| Repo state | What init does |
+|------------|----------------|
+| Fresh `git init` — no manifest, no source, no tests | Asks which language you intend, offers to scaffold a runner, then probes and writes a verified lane. Decline and it writes **nothing** |
+| Runner installed, zero tests written | Configures the lane normally; the probe reporting zero tests is expected here |
+| Source but no test tooling | Proposes a runner **and** `coverageMode: "no-decrease"`, so an untested codebase ratchets upward instead of failing on day one |
+| Runner declared in the manifest but not installed | Reports the install step, writes no lane |
+
+Init never writes a zero-lane config. That config is invalid, so both hooks would fail closed while telling you to run the command that just produced it. With no config at all the plugin stays silent and nothing is blocked.
+
+### Q: The gate says BOOTSTRAP. What is that?
+
+A: A lane that has never discovered a test. Zero tests is the expected state of a brand-new project, not a broken discovery glob, so the gate reports it loudly on every run instead of blocking — and skips the coverage gate, since there is nothing to measure.
+
+The moment that lane runs its first test, `ever_had_tests` is set permanently in `state.json` and the strict rule takes over: a zero-test run becomes a hard failure, diagnosed as a regression rather than as greenfield. The ratchet is one-way, so deleting every test does not get you back to bootstrap.
+
+This keeps the fail-loud invariant honest. What it guards against is a zero-test run *silently* looking green; in bootstrap nothing is silent, and `/tdd-guardian:status` renders the lane as `bootstrap — no tests yet` rather than `passed`.
+
+### Q: My repo is a polyglot monorepo. Does that work?
+
+A: Yes, and this is where the old single-manifest detection failed. Init checks for a workspace declaration first (`pnpm-workspace.yaml`, `go.work`, `[workspace]`, `settings.gradle`, `turbo.json`, `nx.json`) and prefers the one aggregate command your maintainers already use. Without a workspace declaration it globs for manifests up to three directories deep and proposes one lane per ecosystem, named by directory.
+
+### Q: How do I stop the e2e suite running after every task?
+
+A: Give it `"gateOn": ["push"]`. It is then checked for freshness before `git push`, `gh pr create`, and publish commands, and never runs on task completion. Run it on demand with `/tdd-guardian:gate push`.
+
+### Q: Should my e2e lane contribute coverage?
+
+A: Almost certainly not — set `"coverage": "none"`. Browser coverage needs an instrumented build plus a browser-side collector, and without that an e2e lane contributes nothing. Configuring it as if it did produces either a missing report or an empty one, and an empty report scores 100% under the 0/0 convention. `tooling-catalog/references/e2e.md` documents what real e2e coverage collection takes, per stack, if you decide you need it.
+
+### Q: Two lanes both produce coverage. How is it combined?
+
+A: If every report carries per-line detail (LCOV, Cobertura, JaCoCo, coverage.py JSON, `coverage-final.json`), the gate computes an exact **union** — a line hit by any lane counts once. If any report is summary-only (`coverage-summary.json`), it falls back to a **weighted** average that counts a shared line once per lane, and says so in the report. Give each lane its own `coverageSummaryPath`, or the second overwrites the first.
 
 ### Q: What counts as a "wiring-only" test?
 
@@ -234,7 +293,9 @@ A: No. The implementer spec explicitly forbids advancing to the next work item b
 
 ### Q: What if my coverage tool doesn't measure functions (e.g., LCOV only)?
 
-A: The `parse-coverage` partial returns `null` for unmeasured dimensions. When a threshold is `> 0` and the metric is null, the gate produces a WARN not a FAIL, with a clear message telling you to either configure your tool to emit functions, or lower the threshold to 0.
+A: The parser returns `null` for unmeasured dimensions. When a threshold is `> 0` and the metric is null, the gate produces a WARN not a FAIL, telling you to either configure your tool to emit the dimension, or set that threshold to 0.
+
+Known cases: go-cover measures no functions and no branches; coverage.py measures no functions; SimpleCov measures neither without `enable_coverage :branch`; LCOV measures functions and branches only when the producing tool emits `FNF`/`FNH` and `BRF`/`BRH`.
 
 ### Q: How do I audit a single file's coverage?
 
@@ -258,6 +319,24 @@ Symptoms: every command stops with "TDD Guardian config not found".
 
 Fix: run `/tdd-guardian:init`. Do NOT write the config by hand unless you know exactly which fields are required — `load-config.md` enforces all required fields and will reject partial configs.
 
+### A lane passes but nothing actually ran
+
+Symptoms: a lane completes suspiciously fast, or coverage is 100% on a project that clearly is not.
+
+The gate refuses both cases: a runner that discovers zero tests is classified `no-tests` and fails, and a coverage report measuring zero lines fails rather than scoring 100% under the 0/0 convention. If you hit either, the cause is usually a build cache (`go test`, `cargo test`, Gradle's up-to-date check, `dune test`) or a test-discovery glob pointing at the wrong directory.
+
+Run `/tdd-guardian:probe` — it reports a lane that resolves but discovers nothing as `empty`, with the likely cause.
+
+### Stale gate right after a green workflow
+
+Symptoms: the workflow finishes green, then `git commit` is denied.
+
+The `taskCompleted` lanes ran, but a lane bound to `commit` did not. Run `/tdd-guardian:gate commit`. The workflow does this automatically at step 7b; if you ran the focused commands individually, you need it explicitly.
+
+### Commit blocked after editing files without committing
+
+This is correct. Freshness checks both committed changes and the working tree, so uncommitted edits invalidate a gate exactly as committed ones do. Re-run `/tdd-guardian:gate commit`.
+
 ### Plan missing when design-tests runs
 
 Symptoms: `/tdd-guardian:design-tests` stops with "No plan found".
@@ -270,7 +349,9 @@ This is the exact problem TDD Guardian is designed to catch. Coverage only measu
 
 ### Runner says "no tests found"
 
-The `run-tests` partial classifies this as status `no-tests`, separate from `fail`. The implementer did not write tests as instructed. Re-dispatch with a tighter prompt, or inspect the test file paths and runner config — your runner may not be discovering them.
+The `run-lane` partial classifies this as status `no-tests`, separate from `fail`, and fails the lane. Green with nothing run is indistinguishable from green with everything run, so it is never treated as a pass.
+
+Either the implementer did not write tests as instructed, or discovery is misconfigured. Run `/tdd-guardian:probe` to tell the two apart — it lists what each lane discovers without executing anything.
 
 ### Mutation tool takes hours
 
@@ -285,7 +366,9 @@ Do not disable the mutation gate as the default response to slowness; optimize f
 ## Related skills
 
 - `tdd-guardian:policy-core` — the assertion hierarchy and mock rules every agent enforces.
+- `tdd-guardian:lane-policy` — which behavior belongs at which test level, and how lanes bind to triggers.
+- `tdd-guardian:tooling-catalog` — per-language runners, coverage tools, formats, and probe commands.
 - `tdd-guardian:test-matrix` — the matrix format the designer produces.
-- `tdd-guardian:coverage-gate` — the coverage thresholds and test-quality scan rubric.
+- `tdd-guardian:coverage-gate` — the coverage thresholds, multi-lane merge, and test-quality scan rubric.
 - `tdd-guardian:mutation-gate` — the mutation tool reference, operator catalog, and survivor patterns.
 - `tdd-guardian:review-gate` — the final review rubric and severity calibration.

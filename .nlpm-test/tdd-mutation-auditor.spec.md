@@ -1,6 +1,6 @@
 ---
 artifact: agents/tdd-mutation-auditor.md
-description: Spec for tdd-mutation-auditor — runs mutation testing when enabled, lists surviving mutants, hardens assertions until threshold met.
+description: Spec for tdd-mutation-auditor — runs mutation testing when enabled, lists surviving mutants, proposes the killing test for each survivor. Report-only — the implementer writes them.
 ---
 
 # tdd-mutation-auditor
@@ -19,11 +19,16 @@ Scenario: `mutationCommand=npx stryker run` but Stryker is not installed.
 Expected: agent runs the availability probe, detects missing binary, reports `SKIPPED (tool not available)` with install instructions.
 Must contain: `Gate Result: SKIPPED`, install-hint command.
 
-### P3: survivor-kill iteration request
+### P3: survivor-kill request
 
 Scenario: after initial run shows 3 survivors, user says "strengthen the tests to kill the survivors."
-Expected: agent fires. Proposes boundary tests per mutator category, iterates until threshold passes or BLOCKED with explicit evidence.
-Must contain: `## Actions Taken` table linking each survivor to a test added/modified.
+Expected: agent fires. Proposes the boundary test that would kill each survivor, per mutator category, with a lane and a Level 1-5 assertion strategy for each. It does NOT write them — it returns a verdict and points at `/tdd-guardian:implement`.
+Must contain: `## Surviving Mutants` table with `Proposed test`, `Lane`, and `Assertion level` columns.
+
+### N3: writing tests itself
+
+Scenario: user says "just fix the tests for me."
+Expected: agent does NOT write or edit any file. Measuring test strength and editing the tests being measured are separate jobs, and this agent holds only the first. It reports and hands off to the implementer.
 
 ## Negative triggers (agent MUST NOT fire)
 
@@ -67,14 +72,22 @@ Any mutant ignored as "equivalent" MUST be declared in `## Surviving Mutants` wi
 | Score | X% |
 
 ## Surviving Mutants
-| # | File:Line | Mutant Type | Original | Mutated | Fix |
+| # | File:Line | Mutant Type | Original | Mutated | Proposed test | Lane | Assertion level |
 
-## Actions Taken
-| # | Mutant | Test Added/Modified | Result |
+## Equivalent Mutants (declared, not killable)
+| # | File:Line | Why the mutation is semantically identical |
 
-## Final Status: PASS | BLOCKED
+## Final Status: PASS | FAIL | SKIPPED (tool not available)
+
+## Next step
 ```
+
+## Proposed-test-quality rule
+
+Every proposed test MUST reference a Level 1-5 assertion strategy. A Level 6-7 proposal would kill the mutant by asserting on a mock — the exact failure mode mutation testing exists to expose — and is a spec violation.
+
+Equivalent mutants MUST be declared explicitly. Silently dropping an unkillable mutant inflates the score.
 
 ## Purity checks
 
-Allowed tools: `Read, Write, Edit, Bash, Grep, Glob, LS, TodoWrite`. `Write`/`Edit` is limited to test files when iterating on survivors — agent MUST NOT edit source files to "silence" mutants.
+Allowed tools: `Read, Bash, Grep, Glob`. Read-only: declaring `Write` or `Edit` on an agent that measures test strength is a spec violation, because it could silence a mutant by editing the code being measured. `Bash` is limited to the tool probe and `mutationCommand`.

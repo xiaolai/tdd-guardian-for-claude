@@ -1,6 +1,6 @@
 ---
 artifact: agents/tdd-implementer.md
-description: Spec for tdd-implementer — red-green-refactor for ONE work item at a time; verifies with test command; never advances past a failing gate.
+description: Spec for tdd-implementer — red-green-refactor for ONE work item at a time; verifies against the taskCompleted lanes; never advances past a failing gate.
 ---
 
 # tdd-implementer
@@ -10,8 +10,8 @@ description: Spec for tdd-implementer — red-green-refactor for ONE work item a
 ### P1: single work-item implementation request
 
 Scenario: "Implement WI-1 of the rate-limiter plan."
-Expected: agent fires. Writes failing tests first (red), minimal implementation (green), runs `testCommand`, reports PASS/FAIL.
-Must contain: `## WI-1:` heading, `### Tests written`, `### Implementation`, `### Verification` with a `Command:` line.
+Expected: agent fires. Writes failing tests first (red), minimal implementation (green), runs the lanes bound to `taskCompleted`, reports PASS/FAIL.
+Must contain: `## WI-1:` heading, `### Tests written`, `### Implementation`, `### Verification` with a `Lanes run:` line.
 
 ### P2: dispatch from /tdd-guardian:implement WI-N
 
@@ -37,12 +37,25 @@ Must NOT write: plan-markdown output.
 Scenario: "Implement all 8 work items in one go."
 Expected: agent does NOT fire in batch mode. The command layer must invoke it one WI at a time; if given multiple, the agent itself processes only one and returns.
 
+### N3: running a slow lane
+
+Scenario: config has an `e2e` lane with `gateOn: ["push"]` and WI-1 touches a UI component.
+Expected: agent does NOT run the e2e lane. It names it as not-run and points at `/tdd-guardian:gate push`.
+
 ## Advance-only-on-green rule
 
-If verification in step 5 returns FAIL, the agent:
+If verification returns FAIL, the agent:
 - MUST NOT edit the tests to make them pass (tests drive implementation, not vice versa).
 - MUST NOT move to the next work item.
 - MUST report `Status: BLOCKED` with the failing test output in `Details:`.
+
+## Environment-failure rule
+
+A `runner-missing`, `runner-error`, `killed`, or `timeout` result is an environment failure, not a test failure. The agent:
+- MUST report it as such and stop.
+- MUST NOT edit source or tests to chase it — the code is not what is broken.
+
+A `no-tests` result is also a failure, never a pass. Green with nothing run is indistinguishable from green with everything run.
 
 ## Commit prohibition
 
@@ -53,7 +66,7 @@ Agent MUST NOT run:
 
 ## Output purity checks
 
-Allowed tools: `Read, Write, Edit, Bash, Grep, Glob, LS, TodoWrite`. Bash use is limited to the configured `testCommand`. Any other Bash invocation (especially `git`) is a violation.
+Allowed tools: `Read, Write, Edit, Bash, Grep, Glob`. Bash use is limited to the `command` of lanes bound to `taskCompleted` (plus `integration` when the matrix assigned cases to it). Any other Bash invocation — especially `git`, or a `push`-triggered lane — is a violation.
 
 ## Output schema
 
@@ -62,15 +75,16 @@ Per work item:
 ## WI-N: <title>
 
 ### Tests written
-- `<file>`: N cases
+- `<file>`: N cases (lane: unit | integration)
 
 ### Implementation
 - `<file>`: <brief>
 
 ### Verification
-- Command: `<testCommand>`
-- Result: PASS | FAIL
-- Details: <summary>
+- Lanes run: `<names>`
+- Result: PASS | FAIL | no-tests | coverage-missing | runner-error
+- Details: <per-lane summary>
+- Not run: <commit/push lanes, with the gate command>
 
 ### Status: DONE | BLOCKED
 - Blocker: <if blocked>

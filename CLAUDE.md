@@ -1,12 +1,14 @@
 # tdd-guardian
 
-TDD Guardian plugin for Claude Code. Enforces strict test-driven development with automated quality gates.
+TDD Guardian plugin for Claude Code. Enforces strict test-driven development with automated quality gates across unit, integration, e2e, and contract test lanes.
 
 ## Project structure
 
 ```
 .claude-plugin/
   plugin.json             Plugin metadata
+.github/workflows/
+  verify.yml              CI — tests on Node 18/20/22/24, nlpm-check, badge freshness
 hooks/
   hooks.json              Hook registration (auto-discovered by Claude Code)
 agents/                   Specialized subagents for TDD workflow
@@ -14,101 +16,172 @@ agents/                   Specialized subagents for TDD workflow
   tdd-test-designer.md    Behavior-driven test design
   tdd-implementer.md      Small-batch implementation
   tdd-coverage-auditor.md Coverage gate enforcement
-  tdd-mutation-auditor.md Mutation testing
+  tdd-mutation-auditor.md Mutation testing (report-only)
   tdd-reviewer.md         Final code + test quality review
-commands/                 Slash command definitions (file basename = command name)
-  init.md                 /tdd-guardian:init — initialize config
-  plan.md                 /tdd-guardian:plan — break work into items
-  design-tests.md         /tdd-guardian:design-tests — build the test matrix
-  implement.md            /tdd-guardian:implement — red/green one work item
-  audit-coverage.md       /tdd-guardian:audit-coverage — coverage gate
-  audit-mutation.md       /tdd-guardian:audit-mutation — mutation gate
-  review.md               /tdd-guardian:review — final quality review
-  status.md               /tdd-guardian:status — gate freshness report
-  workflow.md             /tdd-guardian:workflow — full TDD orchestration
+commands/                 11 commands; basename = command name (see Command naming)
+                          init, probe, gate, status, plan, design-tests,
+                          implement, audit-coverage, audit-mutation, review, workflow
+  shared/                 Partials — not user-invocable
+    load-config.md        Load, migrate v1→v2, validate lanes
+    detect-tooling.md     CI-first detection with dry-run probes
+    run-lane.md           Lane execution and outcome classification
+    parse-coverage.md     9-format parsing and merging
+    parse-mutation.md     Mutation report parsing
 config/
-  config.json             Default configuration template
+  config.json             Default configuration template (schema v2)
 scripts/
+  ci/nl-artifacts-hash.py Content hash backing the nlpm score attestation
   tdd-guardian/
-    pretool_guard.js      PreToolUse hook — blocks commits without fresh gates
-    taskcompleted_gate.js TaskCompleted hook — runs gates on task completion
-skills/
-  tdd-guardian/
-    init/                 Workspace initialization
-    workflow/             TDD workflow orchestration
-    policy-core/          Global TDD governance policy
+    lib/config.js         Config load, v1→v2 migration, validation
+    lib/coverage.js       9-format coverage parser + union/weighted merge
+    lib/lanes.js          Lane selection, execution, state, freshness
+    lib/exec.js           Command execution and outcome classification
+    pretool_guard.js      PreToolUse hook
+    taskcompleted_gate.js TaskCompleted hook
+skills/tdd-guardian/      9 skills
+    policy-core/          Assertion hierarchy, mock rules, completion gates
+    lane-policy/          Test-level taxonomy
+    tooling-catalog/      Per-language tooling reference (SKILL.md + 9 references)
     test-matrix/          Test matrix design
     coverage-gate/        Coverage enforcement
     mutation-gate/        Mutation testing
     review-gate/          Code + test quality review
+    init/, workflow/      Setup and orchestration
+tests/                    node --test suite (no dependencies)
 ```
 
 ## Conventions
 
+### Lanes
+
+A lane is one test tier with its own command, trigger, and coverage participation. Config schema v2 replaced the single `testCommand`/`coverageCommand` pair with a `lanes` array.
+
+Triggers: `taskCompleted` (the hook *runs* these), `commit` and `push` (checked for *freshness*), `manual`. **`push` subsumes `commit`.**
+
+Schema v1 configs keep working — `lib/config.js` migrates them in memory to a single `unit` lane, preserving the original two-command behaviour exactly. Never change that migration's semantics without a major version bump.
+
 ### Test quality enforcement
 
-All tests must have at least one Level 1-5 (behavior) assertion. Tests with only Level 6-7 (wiring) assertions are rejected. See `skills/tdd-guardian/policy-core/SKILL.md` for the full assertion hierarchy.
+Two independent axes, both required for every test:
+
+- **Assertion level** (`policy-core`) — how strongly the test verifies anything. Every test needs at least one Level 1-5 assertion; Level 6-7 only is a wiring test and is rejected.
+- **Lane** (`lane-policy`) — at what level the behavior is verified. The deciding question: *would this test still pass if the real collaborator were broken?* If yes, it belongs one lane higher.
+
+### Fail-loud invariants
+
+These are load-bearing. Do not soften them without stating the mechanism that makes it safe:
+
+1. **A zero-test run is a failure**, not a pass — *once the lane has ever had tests*. Green with nothing run is indistinguishable from green with everything run. Before a lane's first test it is in **bootstrap**: reported loudly on every gate run but not blocking, because a greenfield repo is not a broken one. `ever_had_tests` is a one-way ratchet, so deleting every test cannot restore bootstrap. The invariant guards against a *silent* zero-test run; nothing in bootstrap is silent.
+2. **A coverage report measuring zero lines fails.** Under the 0/0 convention it scores 100%. Skipped while a lane is in bootstrap — no tests means nothing to measure.
+3. **A `null` metric is not zero** — it means the format does not measure that dimension. Non-zero threshold + null = WARNING, never FAILURE.
+4. **A weighted coverage merge is reported as approximate.** Only per-line formats merge as a true union.
+5. **Freshness checks the working tree, not just commits.** Uncommitted edits invalidate a gate.
+6. **An environment failure never triggers a code fix.** A missing runner is not a failing test — in the plugin's gates, and in its own test suite, where the git-dependent tests skip with a stated reason rather than reporting as logic failures.
+7. **A failing lane must not advance `last_passed_at` or `last_head_sha`.** A bootstrap lane does record them, so a greenfield repo is not deadlocked on a gate that cannot pass until a test exists.
+8. **Never write a zero-lane config.** It is invalid, so both hooks fail closed — and the error would tell the user to run the command that produced it. When there is no tooling to detect, `/tdd-guardian:init` writes nothing; a silent plugin beats a deadlocked one.
 
 ### Hook scripts
 
-- Hooks are registered via `hooks/hooks.json` using `${CLAUDE_PLUGIN_ROOT}` paths
-- `pretool_guard.js` intercepts Bash tool calls matching commit/push/publish patterns
-- `taskcompleted_gate.js` runs test/coverage/mutation gates on task completion
-- Both read config from `.claude/tdd-guardian/config.json` in the project workspace
-- Gate freshness state is written to `.claude/tdd-guardian/state.json`
+- Registered via `hooks/hooks.json` using `${CLAUDE_PLUGIN_ROOT}` paths.
+- `pretool_guard.js` classifies Bash commands as commit-class or push-class by **tokenizing segments**, not by regex-matching the raw string — so `echo "git push"` does not false-positive and `git -C /repo commit` does not slip through.
+- `taskcompleted_gate.js` runs the `taskCompleted` lanes, merges coverage, and runs the mutation gate when bound.
+- Both read `.claude/tdd-guardian/config.json` and write `.claude/tdd-guardian/state.json`.
+- Shared logic lives in `scripts/tdd-guardian/lib/`. **Put new gate logic there, not in a hook** — both hooks and four commands depend on it, and only the lib is tested.
 
 ### Command naming
 
-Claude Code registers a plugin command as `/<plugin-name>:<file-basename>`. Never prefix a command file with `tdd-guardian-` — the plugin namespace is already applied, so `commands/tdd-guardian-plan.md` would register as `/tdd-guardian:tdd-guardian-plan`. Keep the basename bare (`plan.md` → `/tdd-guardian:plan`) and keep the `name:` frontmatter identical to the basename.
+Claude Code registers a plugin command as `/<plugin-name>:<file-basename>`. Never prefix a command file with `tdd-guardian-` — the plugin namespace is already applied. Keep the basename bare (`plan.md` → `/tdd-guardian:plan`) and the `name:` frontmatter identical to the basename.
+
+### Adding a language to the catalog
+
+1. Add the manifest fingerprint to `skills/tdd-guardian/tooling-catalog/SKILL.md`.
+2. Add the language to the matching `references/*.md`: runner detection, test command, coverage command, output format and path, mutation tool, probe command, gotchas.
+3. If its coverage format is not one of the nine already parsed, add a parser to `lib/coverage.js` **and** a test to `tests/coverage.test.js`. Do not document a format the parser cannot read.
+4. Same rule for mutation tools: `commands/shared/parse-mutation.md` must be able to read the report, or the catalog must not propose the tool.
 
 ### Adding new skills
 
-1. Create `skills/tdd-guardian/<name>/SKILL.md` with YAML frontmatter
-2. Reference `policy-core` skill for governance rules
-3. Update `README.md`
+1. Create `skills/tdd-guardian/<name>/SKILL.md` with YAML frontmatter.
+2. Reference `policy-core` for governance rules and `lane-policy` for test levels.
+3. Add a `## Scope` section — nlpm R07 requires it, and it stops skills from overlapping.
+4. Update `README.md` and `GUIDE.md`.
 
 ### Adding new agents
 
-1. Create `agents/tdd-<name>.md` with YAML frontmatter
-2. List required tools and skills in frontmatter
-3. Reference in `commands/workflow.md` if part of the workflow
-4. Update `README.md`
+1. Create `agents/tdd-<name>.md` with YAML frontmatter including `model:` and a least-privilege `allowed-tools:`.
+2. Add a `## Tools` table to the body naming what each declared tool is for. An audit/review/scan agent must not declare `Write` or `Edit`.
+3. Add a `## Output format` section with a concrete template.
+4. Reference in `commands/workflow.md` if part of the workflow, and update `README.md`.
 
 ## Prerequisites
 
-- Node.js 18+ (hooks run via `node`; no package manager required — scripts are plain Node, no `npm install` step)
+- Node.js 18+ (hooks and tests run via `node`; no package manager, no `npm install`). Verified in CI on 18, 20, 22, and 24.
 - Claude Code 1.0 or later (for `${CLAUDE_PLUGIN_ROOT}` expansion and `TaskCompleted` hook support)
-- `jq` (optional, used for JSON validation snippets below)
+- `git` on PATH for the freshness tests; without it they skip with a stated reason
+- Python 3 for `nlpm-check` and the artifact hash (stdlib only)
 
 ## Development
 
-### Testing hooks locally
-
-The hooks read JSON payloads from stdin. Feed a sample payload to exercise them:
+### Running the test suite
 
 ```bash
-# PreToolUse — simulate a blocked `git commit` attempt
+node --test                         # discovers tests/, works on Node 18+
+node --test tests/coverage.test.js  # one file
+```
+
+162 tests cover every coverage format, config migration and validation, lane selection and freshness, exit-code classification, and both hooks end to end.
+
+**Do not "simplify" the bare form to `node --test "tests/**/*.test.js"`.** Node's `--test` glob support arrived in Node 21; on 18 and 20 that invocation matches nothing, runs no tests, and **exits 0** — a silent green no-op of exactly the kind this plugin exists to catch.
+
+**Any change to `scripts/tdd-guardian/lib/` or the hooks requires a test.** `tests/hooks.test.js` drives the hooks exactly as Claude Code does — a JSON payload on stdin, a JSON decision on stdout.
+
+### Testing hooks by hand
+
+```bash
+# PreToolUse — simulate a blocked `git commit`
 echo '{"tool_name":"Bash","tool_input":{"command":"git commit -m wip"},"cwd":"'"$PWD"'"}' \
   | node scripts/tdd-guardian/pretool_guard.js
 
-# TaskCompleted — trigger the gate runner
-echo '{"cwd":"'"$PWD"'"}' \
-  | node scripts/tdd-guardian/taskcompleted_gate.js
+# PreToolUse — push-class, which additionally requires the push lanes
+echo '{"tool_name":"Bash","tool_input":{"command":"git push origin main"},"cwd":"'"$PWD"'"}' \
+  | node scripts/tdd-guardian/pretool_guard.js
+
+# TaskCompleted — run the taskCompleted lanes
+echo '{"cwd":"'"$PWD"'"}' | node scripts/tdd-guardian/taskcompleted_gate.js
 ```
 
-Exit code `0` = allow; non-zero = block. stdout carries any message surfaced to Claude Code.
+Empty stdout means "no opinion" (allow). PreToolUse emits `permissionDecision: "allow"|"deny"`; TaskCompleted emits `decision: "block"` with the failure context.
 
-For end-to-end testing, install the plugin into a throwaway project, run `/tdd-guardian:init`, then attempt a commit — the hook should block until gates pass.
+### CI
+
+`.github/workflows/verify.yml` runs on push and PR:
+
+| Job | Checks |
+|-----|--------|
+| `test` | Full suite on Node 18/20/22/24. Fails on any failure, on **zero tests discovered**, on any skip (CI has git), and if the README test-count badge drifted |
+| `artifacts` | Every JSON file parses; `nlpm-check --strict`; the committed `nlpm-badge.json` matches a fresh regeneration; warns if the score attestation is stale |
+| `hooks` | Both hooks stay silent on an uninitialised project and survive malformed and empty stdin |
+
+If `xiaolai/nlpm` cannot be fetched, the nlpm steps emit a **warning saying they were skipped** rather than passing quietly.
+
+### Refreshing the README badges
+
+| Badge | Source | Refresh |
+|-------|--------|---------|
+| Validated by NLPM | `nlpm-badge.json` | `nlpm-check --json . \| nlpm-badge > nlpm-badge.json` — CI fails if stale |
+| nlpm score | `nlpm-score.json` | Run `/nlpm:score`, update the file and the README number — CI warns if stale |
+| tests N passing | static | `node --test`, update the count — CI fails if it drifts |
+
+The score badge is the one CI cannot recompute, because scoring needs the nlpm scorer agent. It verifies the next best thing — a content hash of every NL artifact:
+
+```bash
+python3 scripts/ci/nl-artifacts-hash.py --check
+```
+
+`nlpm-check` and `nlpm-badge` ship in the nlpm plugin's `bin/`.
 
 ### JSON validation
 
-Validate the plugin manifests before release:
-
 ```bash
-jq . .claude-plugin/plugin.json
-jq . hooks/hooks.json
-jq . config/config.json
-jq . .claude-plugin/marketplace.json  # if present in this repo
+jq . .claude-plugin/plugin.json hooks/hooks.json config/config.json .claude-plugin/marketplace.json
 ```
-
-Any parse error fails fast. No separate test framework or build step exists for the plugin itself — the TDD workflow it enforces operates on target projects, not on the plugin's own source.

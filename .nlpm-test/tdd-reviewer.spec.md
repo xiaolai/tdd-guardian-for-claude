@@ -47,7 +47,9 @@ Per the agent's documented severity guidelines:
 | Wiring-only test in unchanged file | Medium |
 | Mocked internal module | Medium |
 | Security check via mock args only | High |
-| Missing integration test for mocked boundary | Medium |
+| Mocked boundary with no paired integration-lane test | Medium |
+| Repo has mocked boundaries and no integration lane | Medium (reported once, against the config) |
+| Test in the wrong lane per lane-policy | Medium |
 | Missing test for error path | Medium |
 | Missing test for happy path | High |
 
@@ -59,7 +61,7 @@ If no findings exist, agent MUST state that explicitly — not return an empty r
 
 ## Purity checks
 
-Allowed tools: `Read, Grep, Glob, LS, TodoWrite`. No `Write`, no `Edit`, no `Bash`. Reviewer is strictly read-only.
+Allowed tools: `Read, Grep, Glob`. No `Write`, no `Edit`, no `Bash`. Reviewer is strictly read-only.
 
 ## Output schema
 
