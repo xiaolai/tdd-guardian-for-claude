@@ -21,7 +21,7 @@ description: Produce findings-first code review with severity ordering, test-gap
 
 Follow the assertion hierarchy and mock rules defined in the `policy-core` skill.
 
-For every test file touched or relevant to the change, evaluate:
+For every test file the change touches, and every test file covering a changed source file, evaluate:
 
 ### Check 1: Wiring-only tests
 
@@ -46,9 +46,23 @@ Security properties must be verified via integration tests or by inspecting the 
 
 Scan source files for `/* v8 ignore next */` or `/* v8 ignore next N */`. These silently fail on `??`, ternaries, `catch` bodies, and short-circuit operators (`&&`, `||`) — the directive is not applied but no error is reported, producing false coverage numbers. Flag as **High severity**. Fix: replace with `/* v8 ignore start */` / `/* v8 ignore stop */`.
 
-### Check 5: Missing integration test coverage
+### Check 5: Unpaired mock boundaries
 
-For any unit test that mocks a system boundary, check if a corresponding integration test exists (in `__tests__/integration/`). Flag missing integration coverage as **Medium severity**.
+For every unit test that mocks a system boundary, verify a corresponding test exists in the `integration` lane. Resolve the lane from `.claude/tdd-guardian/config.json` — its `command` tells you which paths or markers the integration lane actually runs, so check there rather than assuming a directory name.
+
+| Finding | Severity |
+|---------|----------|
+| Mocked boundary with no integration-lane counterpart | Medium |
+| Mocked boundary and the repo has **no** integration lane at all | Medium — report once, against the config, not per test |
+| Security property verified via mock args, no integration counterpart | High (also Check 3) |
+
+Report the missing lane against the config rather than repeating it per test. One configuration finding is actionable; forty duplicates are noise.
+
+### Check 6: Lane assignment
+
+For each test under review, ask the `lane-policy` question: would this test still pass if the real collaborator were broken? If yes, it is in the wrong lane. Flag as **Medium severity** with the lane it belongs in.
+
+Common cases: SQL correctness verified against a mocked driver, auth middleware verified against a stubbed guard, file permissions verified against a mocked `fs`.
 
 ### Output format for test quality findings
 
@@ -61,3 +75,15 @@ For any unit test that mocks a system boundary, check if a corresponding integra
 | 2 | Med | cli/lifecycle.test.ts:50 | Mock-was-called as sole verification for stop command | Assert formatted output or inspect container state |
 | 3 | High | src/config.ts:42 | `/* v8 ignore next 3 */` on `??` expression — silently fails | Replace with `/* v8 ignore start */` / `/* v8 ignore stop */` |
 ```
+
+## Scope
+
+Covers the final review rubric: finding order, the test-quality audit checks, the lane audit, and severity assignment.
+
+Does NOT cover:
+
+| Question | Skill |
+|----------|-------|
+| What do assertion Levels 1-7 mean? | `tdd-guardian:policy-core` |
+| Which lane should a test live in? | `tdd-guardian:lane-policy` |
+| How are coverage numbers computed? | `tdd-guardian:coverage-gate` |

@@ -7,10 +7,11 @@ description: Enforce coverage thresholds AND test quality — coverage without b
 
 ## Gate 1: Coverage thresholds
 
-1. Run project test command.
-2. Run project coverage command.
-3. Verify coverage summary exists.
-4. Enforce thresholds based on `coverageMode`:
+1. Run every lane whose `gateOn` includes the active trigger.
+2. Collect the report from each lane with `coverage: "include"`.
+3. Merge them (see "Multi-lane coverage" below).
+4. Verify the merge measured something — a report with zero measurable lines scores 100% under the 0/0 convention and must FAIL, not pass. A silent no-op coverage run looks identical to a perfect one.
+5. Enforce thresholds against the merged totals based on `coverageMode`:
 
 ### Coverage modes
 
@@ -32,11 +33,36 @@ description: Enforce coverage thresholds AND test quality — coverage without b
 
 Default threshold policy (absolute mode): `100` for all metrics.
 
+### Multi-lane coverage
+
+Thresholds apply to the **merged** total across every contributing lane, never to a single lane. Two merge methods exist and the gate reports which one it used:
+
+| Method | When | Accuracy |
+|--------|------|----------|
+| `single` | One contributing lane | Exact |
+| `union` | Every report carries per-line detail | Exact — a line hit by any lane counts once |
+| `weighted` | At least one report is summary-only | **Approximate** — a line hit by two lanes is counted twice |
+
+To get an exact union, have every contributing lane emit a per-line format: LCOV, Cobertura, JaCoCo, coverage.py JSON, or `coverage-final.json`. Summary-only formats (`coverage-summary.json`) force the weighted fallback. When the gate falls back, it says so in the report — do not quote a weighted number as if it were a union.
+
+Give every contributing lane its **own** `coverageSummaryPath`. Two lanes writing the same file means the second overwrites the first and coverage is silently undercounted.
+
+### Unmeasured metrics are not zero
+
+A metric the report format does not track is `null`. With a non-zero threshold that produces a WARNING, never a FAILURE:
+
+- coverage.py and go-cover measure no functions
+- go-cover and SimpleCov measure no branches by default
+- LCOV measures functions and branches only when the producing tool emits `FNF`/`FNH` and `BRF`/`BRH`
+
+Set those thresholds to 0 rather than living with a permanent warning. Treating null as zero would fail every Go and Python project for a dimension their tools cannot report.
+
 ### If coverage fails:
 
-1. List exact metric deltas (against thresholds in absolute mode, against baseline in no-decrease mode).
+1. List exact metric deltas (against thresholds in absolute mode, against baseline in no-decrease mode), including the covered/total counts, not just percentages.
 2. Identify uncovered branches/functions by file.
-3. Add missing tests, then rerun full gate.
+3. Name the lane each gap belongs in, per `lane-policy`. An uncovered error path in a DB adapter is an integration-lane gap; do not close it with a mock in the unit lane.
+4. Add missing tests, then rerun the full gate.
 
 ## Gate 2: Test quality (new — enforced alongside coverage)
 
@@ -91,3 +117,16 @@ Fix: replace with /* v8 ignore start */ / /* v8 ignore stop */ range comments
 | `expect(mockCreate).toHaveBeenCalledWith(opts)` | Verify return value | `expect(result.id).toMatch(/^mx-/)` |
 | `expect(mockStop).toHaveBeenCalled()` | Verify formatted output | `expect(formatter.success).toHaveBeenCalledWith("Mecha stopped.")` |
 | `expect(mockCreate).toHaveBeenCalledWith(securityOpts)` | Add integration test | `const info = await inspect(container); expect(info.HostConfig.ReadonlyRootfs).toBe(true)` |
+
+## Scope
+
+Covers threshold enforcement: coverage modes, multi-lane merging, null-metric handling, the test-quality scan, and the coverage-ignore directive audit.
+
+Does NOT cover:
+
+| Question | Where |
+|----------|-------|
+| How is each report format parsed? | `commands/shared/parse-coverage.md` |
+| Which lanes contribute coverage, and why? | `tdd-guardian:lane-policy` |
+| What coverage tool does language X use? | `tdd-guardian:tooling-catalog` |
+| How is test strength measured beyond coverage? | `tdd-guardian:mutation-gate` |

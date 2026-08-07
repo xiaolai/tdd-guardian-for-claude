@@ -1,6 +1,6 @@
 ---
 name: mutation-gate
-description: Validate test strength with mutation testing and harden weak assertions. Covers Stryker (JS/TS), mutmut (Python), go-mutesting (Go), and cargo-mutants (Rust).
+description: Validate test strength with mutation testing and report weak assertions. Covers the Stryker family (JS/TS, .NET, Scala), PIT (JVM), Infection (PHP), mutmut and cosmic-ray (Python), go-mutesting and gremlins (Go), cargo-mutants (Rust), mutant (Ruby), and muter (Swift).
 ---
 
 # Mutation Gate
@@ -22,6 +22,20 @@ Mutation testing answers the question coverage can't: "would a buggy version of 
 | Python | mutmut | `pip install mutmut` | `mutmut run && mutmut results --json` | inspected via `mutmut show <id>` |
 | Go | go-mutesting | `go install github.com/zimmski/go-mutesting/cmd/go-mutesting@latest` | `go-mutesting ./...` | stdout |
 | Rust | cargo-mutants | `cargo install cargo-mutants` | `cargo mutants` | `mutants.out/outcomes.json` |
+| Java / Kotlin | PIT | plugin in `pom.xml` / `build.gradle` | `./mvnw org.pitest:pitest-maven:mutationCoverage` | `target/pit-reports/mutations.xml` |
+| C# / F# | Stryker.NET | `dotnet tool install -g dotnet-stryker` | `dotnet stryker` | `StrykerOutput/<ts>/reports/mutation-report.json` |
+| Scala | stryker4s | plugin in `project/plugins.sbt` | `sbt stryker` | `target/stryker4s-report/<ts>/report.json` |
+| PHP | Infection | `composer require --dev infection/infection` | `vendor/bin/infection --logger-json=infection-log.json` | `infection-log.json` |
+| Python (alt) | cosmic-ray | `pip install cosmic-ray` | `cosmic-ray exec <cfg> <session>` | `cr-report --json` |
+| Go (alt) | gremlins | `go install github.com/go-gremlins/gremlins/cmd/gremlins@latest` | `gremlins unleash` | stdout / JSON |
+| Ruby | mutant | `bundle add mutant-rspec` | `bundle exec mutant run` | stdout |
+| Swift | muter | `brew install muter-mutation-testing/formulae/muter` | `muter` | `muterReport.json` |
+
+**PIT is the strongest mutation tool in any ecosystem** — if the project is JVM, prefer it over anything else here.
+
+Every tool above is parsed by `commands/shared/parse-mutation.md`. Stryker, Stryker.NET, and stryker4s share one schema (mutation-testing-elements), so a tool not on this list is still supported if it can emit that format — configure that reporter rather than asking for a new parser.
+
+Ecosystems with no mature mutation tool — Elixir (muzak is limited/commercial), Erlang, Haskell (MuCheck is unmaintained), Dart (`mutation_test` is immature) — should leave `requireMutation: false`. That is a fact about the ecosystem, not a gap to paper over; rely on the assertion-hierarchy rules in `policy-core` instead.
 
 Choose the tool that matches the project's test runner — don't try to bolt a JS mutator onto a Python project. If the repo is polyglot, run one tool per language subtree.
 
@@ -141,3 +155,15 @@ Never ignore a survivor because "it's flaky" — fix the flake first. Never disa
 - **coverage-gate** — coverage proves every line is touched; mutation proves every line is checked. Run coverage first; mutation runs on covered code.
 - **test-matrix** — the test matrix's boundary and guard categories are what kill conditional-boundary mutants. If your matrix is weak, your mutation score will be weak.
 - **policy-core** — the Level 1-5 assertion hierarchy and mock rules are the prerequisites for high mutation scores. Wiring-only tests have near-zero mutation strength because mock-call assertions ignore the code the mutator is changing.
+
+## Scope
+
+Covers mutation testing: per-language tools, mutation operators, and the patterns behind surviving mutants.
+
+Does NOT cover:
+
+| Question | Skill |
+|----------|-------|
+| How is line and branch coverage enforced? | `tdd-guardian:coverage-gate` |
+| What assertion level should the killing test use? | `tdd-guardian:policy-core` |
+| Which lane does the killing test belong in? | `tdd-guardian:lane-policy` |

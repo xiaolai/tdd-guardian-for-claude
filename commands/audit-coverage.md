@@ -6,7 +6,7 @@ description: |
   <example>
   user: /tdd-guardian:audit-coverage
   assistant: |
-    Loading config, then dispatching the tdd-coverage-auditor. It runs `coverageCommand`, parses the summary via the parse-coverage partial, compares against `coverageThresholds`, lists uncovered code per file, proposes concrete tests with assertion levels, and runs the coverage-ignore directive audit. Returns a PASS/FAIL verdict.
+    Loading config, then dispatching the tdd-coverage-auditor. It runs every lane with `coverage: "include"`, merges their reports via the parse-coverage partial, compares the merged totals against `coverageThresholds`, lists uncovered code per file with the lane each gap belongs in, proposes concrete tests with assertion levels, and runs the coverage-ignore directive audit. Returns a PASS/FAIL verdict, flagging the merge as approximate if any lane emitted a summary-only format.
   </example>
 
   <example>
@@ -27,24 +27,41 @@ Dispatch the `tdd-coverage-auditor` agent.
 
 Follow `commands/shared/load-config.md`. Stop on missing/disabled.
 
-### Step 2 — Run coverage
+### Step 1b — Determine report scope
 
-Invoke the `Bash` tool with `{coverageCommand}`. Capture exit code + output tail. Timeout 900000 ms (coverage runs can be slow).
+Parse `$ARGUMENTS`:
 
-If the coverage command fails (non-zero exit), stop with:
+| Input | Scope |
+|-------|-------|
+| Empty (the normal case) | Whole project — the detail tables list every uncovered file |
+| File path | Gate still evaluates whole-project totals; the detail tables list only lines in that file |
+| Directory path | Same, filtered to files under that directory |
+| Path that matches no file in the coverage report | Stop with: `No coverage data for {path}. It may be excluded from instrumentation, or the path may be wrong.` |
+
+The scope hint never changes the verdict. Thresholds apply to the merged project totals, so a per-file audit cannot lower the bar for one file.
+
+### Step 2 — Run the contributing lanes
+
+Identify every lane with `coverage: "include"`. Run each via `commands/shared/run-lane.md` (setup → command → coverage report → teardown).
+
+If no lane sets `coverage: "include"`, stop with:
 
 ```
-Coverage command failed: `{coverageCommand}`
-Exit code: {code}
-stderr (last 40 lines):
-{tail}
+No lane produces a coverage report.
 
-Fix the runner before auditing coverage — the auditor cannot infer thresholds from a broken run.
+Set coverage:"include" and coverageSummaryPath on the lane that emits coverage,
+or set all coverageThresholds to 0. Run /tdd-guardian:init to reconfigure.
 ```
 
-### Step 3 — Parse summary
+If a lane fails, stop with its phase, exit code, and output tail. The auditor cannot infer thresholds from a broken run — and an environment failure must never be presented as a coverage finding.
 
-Follow `commands/shared/parse-coverage.md` to load `{coverageSummaryPath}` and normalize to the standard shape.
+### Step 3 — Parse and merge
+
+Follow `commands/shared/parse-coverage.md` to load each lane's `coverageSummaryPath`, normalize, and merge.
+
+Record the merge method. When it is `weighted`, say so in the report and name the lane whose summary-only format forced the fallback — a weighted number quoted as a union is a wrong number stated confidently.
+
+Reject a merge that measured zero lines: under the 0/0 convention it scores 100%, so a silent no-op run would otherwise pass every threshold.
 
 ### Step 4 — Dispatch the auditor
 
@@ -75,17 +92,24 @@ Write the auditor's report to `.claude/tdd-guardian/coverage-{YYYYMMDD-HHMMSS}.m
 # Coverage Audit — {PASS | FAIL}
 
 **Timestamp**: {ISO}
-**Command**: `{coverageCommand}`
+**Lanes**: {names of contributing lanes}
+**Merge**: {single | union | weighted}{" — APPROXIMATE" when weighted}
+**Formats**: {formats read}
 **Report**: `.claude/tdd-guardian/coverage-{timestamp}.md`
 
 ## Totals vs thresholds
 
-| Metric     | Actual  | Threshold | Status |
-|------------|---------|-----------|--------|
-| Lines      | {n.nn}% | {n}%      | PASS/FAIL/WARN (not measured) |
-| Functions  | {n.nn}% | {n}%      | PASS/FAIL/WARN |
-| Branches   | {n.nn}% | {n}%      | PASS/FAIL/WARN |
-| Statements | {n.nn}% | {n}%      | PASS/FAIL/WARN |
+| Metric     | Actual              | Threshold | Status |
+|------------|---------------------|-----------|--------|
+| Lines      | {n.nn}% ({c}/{t})   | {n}%      | PASS/FAIL/WARN (not measured) |
+| Functions  | {n.nn}% ({c}/{t})   | {n}%      | PASS/FAIL/WARN |
+| Branches   | {n.nn}% ({c}/{t})   | {n}%      | PASS/FAIL/WARN |
+| Statements | {n.nn}% ({c}/{t})   | {n}%      | PASS/FAIL/WARN |
+
+{When merge is "weighted": "Coverage was combined as a weighted average, not a
+union, because {lane} emits {format}, which carries no per-line detail. Lines
+covered by more than one lane are counted more than once. Emit LCOV or Cobertura
+from that lane for an exact merge."}
 
 {full auditor output follows}
 ```

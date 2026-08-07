@@ -31,6 +31,16 @@ A test must verify what the code **does** (its observable output, side effects, 
 | 6 | **Mock call args** | `expect(mockFn).toHaveBeenCalledWith(...)` | Weak |
 | 7 | **Mock was called** | `expect(mockFn).toHaveBeenCalled()` | Unacceptable alone |
 
+### Test levels (the second axis)
+
+The hierarchy above asks *how strongly does this test verify anything*. A separate question must also be answered for every test: *at what level does this behavior get verified* — unit, integration, e2e, or contract.
+
+The two axes are independent. A unit test can carry a Level 1 assertion; an e2e test can carry a Level 7 one. See the `tdd-guardian:lane-policy` skill for which behavior belongs at which level, and for how lanes bind to gate triggers.
+
+The rule that settles borderline cases:
+
+> If the test would still pass when the real collaborator is broken, it belongs one lane higher.
+
 ### Mandatory rules
 
 1. **Every test must have at least one Level 1-5 assertion.** A test that only verifies mock call arguments (Level 6-7) is a wiring test and MUST be upgraded.
@@ -42,11 +52,12 @@ A test must verify what the code **does** (its observable output, side effects, 
    - Real streams with actual write/read (not mocked EventEmitter)
    - Real Zod parse (not mocked validation)
 4. **Mock only at boundaries.** Acceptable mock targets: Docker daemon, network I/O, child processes, `Date.now()`, `crypto.randomBytes()`. Unacceptable: mocking your own modules, mocking types/schemas, mocking pure functions.
-5. **Security properties must be tested behaviorally.** Do NOT verify security by asserting mock call args like `expect(callArgs.HostConfig.CapDrop).toEqual(["ALL"])`. Instead, inspect the actual created resource or use integration tests.
-6. Add tests for success, boundaries, invalid input, guard clauses, and error paths.
-7. Include state-transition/idempotency tests when behavior is stateful.
-8. Include timeout/retry/concurrency tests when logic is async or distributed.
-9. Avoid assertion-free tests and snapshot-only logic verification.
+5. **Security properties must be tested behaviorally.** Do NOT verify security by asserting mock call args like `expect(callArgs.HostConfig.CapDrop).toEqual(["ALL"])`. Instead, inspect the actual created resource, in a test that lives in the `integration` lane.
+6. **Mocking a boundary creates an obligation.** Every mocked system boundary must be paired with a named test in the `integration` lane that exercises the real path. A repo with mocked boundaries and no integration lane has an unmet obligation — that is a finding, not a preference.
+7. Add tests for success, boundaries, invalid input, guard clauses, and error paths.
+8. Include state-transition/idempotency tests when behavior is stateful.
+9. Include timeout/retry/concurrency tests when logic is async or distributed.
+10. Avoid assertion-free tests and snapshot-only logic verification.
 
 ### Anti-patterns (flag these in review)
 
@@ -120,9 +131,24 @@ const value = input ?? defaultValue;
 
 ## Completion gates
 
-1. Test command must pass.
-2. Coverage command must pass.
-3. Coverage totals must satisfy thresholds for lines/functions/branches/statements.
+1. Every lane bound to the trigger must pass. A lane that discovered zero tests is a failure, not a pass — green with nothing run is indistinguishable from green with everything run. The one exception is a lane that has **never** had a test (bootstrap): a greenfield repo is not a broken one, so the gate reports it loudly on every run instead of blocking. That exception ends permanently the moment the lane discovers its first test.
+2. Merged coverage across every lane with `coverage: "include"` must satisfy thresholds for lines/functions/branches/statements. A metric the tool does not measure is `null`, which WARNS; it is never treated as zero.
+3. A coverage report measuring zero lines fails the gate. Under the 0/0 convention it scores 100%, so a silent no-op run would otherwise pass.
 4. **Test quality audit**: no test file may have ONLY Level 6-7 assertions. Every test must include at least one Level 1-5 assertion.
-5. Mutation gate must pass when enabled.
-6. High-severity findings must be resolved or explicitly waived with rationale.
+5. **Lane audit**: every mocked boundary has a named integration-lane test covering the real path.
+6. Mutation gate must pass when enabled.
+7. High-severity findings must be resolved or explicitly waived with rationale.
+
+## Scope
+
+Covers the two axes every test is judged on — the assertion hierarchy (Level 1-7), the mock rules, the coverage-ignore directive rules, and the completion gates every agent enforces.
+
+Does NOT cover:
+
+| Question | Skill |
+|----------|-------|
+| Which tier does this behavior belong in? | `tdd-guardian:lane-policy` |
+| What shape does the test matrix take? | `tdd-guardian:test-matrix` |
+| How are thresholds computed and merged? | `tdd-guardian:coverage-gate` |
+| What does the final review check? | `tdd-guardian:review-gate` |
+| What command runs the tests in language X? | `tdd-guardian:tooling-catalog` |

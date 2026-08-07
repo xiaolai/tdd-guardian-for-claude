@@ -23,12 +23,16 @@ For each changed unit/function, provide this matrix before coding tests:
 
 ### Case: <descriptive name>
 - **Category**: success|boundary|guard|failure|state|determinism
+- **Lane**: unit|integration|e2e|contract — per `lane-policy`, the cheapest lane where a failure would be real
 - **Input**: <concrete input values>
 - **Expected output**: <exact return value or thrown error>
 - **Observable side effect**: <what changes in the world — DB row, file, container state, stdout>
 - **Assertion strategy**: <which assertion level from policy-core, and why>
 - **Mock boundary**: <what is mocked and why, or "none — real implementation">
+- **Paired integration test**: <required whenever Mock boundary is not "none" — name the integration-lane case covering the real path>
 ```
+
+Every case carries both a lane and an assertion level. They are independent axes: the lane says where the behavior is verified, the assertion level says how strongly. A case missing either is incomplete.
 
 ## Assertion strategy guide
 
@@ -55,4 +59,24 @@ Apply the mock rules from `policy-core`. Before adding a mock, answer:
 3. **Is it my own code?** (another module in this repo) → Do NOT mock. Use the real module.
 4. **Is it non-deterministic?** (Date.now, crypto.random) → Spy/stub the specific call.
 
-If you mock, you MUST also have an integration test (gated behind `INTEGRATION=true`) that tests the real path.
+## Lane assignment
+
+Assign each case to the cheapest lane where a failure would be real — not the cheapest lane it can be written in. See `lane-policy` for the full mapping. The deciding question:
+
+> Would this test still pass if the real collaborator were broken?
+
+If yes, the case belongs one lane higher.
+
+If you mock, you MUST also name an `integration`-lane case that exercises the real path, in the case's **Paired integration test** field. `review-gate` checks that the pairing exists; an unpaired mock is an unverified boundary.
+
+## Scope
+
+Covers the matrix format and the per-case fields the designer must fill: category, lane, input, expected output, observable side effect, assertion strategy, mock boundary, paired integration test.
+
+Does NOT cover:
+
+| Question | Skill |
+|----------|-------|
+| What do assertion Levels 1-7 mean? | `tdd-guardian:policy-core` |
+| Which lane does a given behavior belong in? | `tdd-guardian:lane-policy` |
+| How is the finished matrix reviewed? | `tdd-guardian:review-gate` |

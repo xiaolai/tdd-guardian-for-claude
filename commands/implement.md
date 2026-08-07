@@ -6,7 +6,7 @@ description: |
   <example>
   user: /tdd-guardian:implement WI-1
   assistant: |
-    Loading the most recent plan and test matrix, locating WI-1, then dispatching the tdd-implementer. It will write the failing tests first (red), add the minimal implementation (green), run the testCommand to confirm green, and stop without touching the next work item. If verification fails, it reports the blocker and I stop the workflow.
+    Loading the most recent plan and test matrix, locating WI-1, then dispatching the tdd-implementer. It will write the failing tests first (red), add the minimal implementation (green), then verify against the `taskCompleted` lanes — the fast inner loop — and stop without touching the next work item. Slower `commit` and `push` lanes are named but not run; `/tdd-guardian:gate` handles those. If verification fails, it reports the blocker and I stop the workflow.
   </example>
 
   <example>
@@ -19,7 +19,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 model: inherit
 ---
 
-Dispatch the `tdd-implementer` agent for a single work item, then verify via `commands/shared/run-tests.md`.
+Dispatch the `tdd-implementer` agent for a single work item, then verify via `commands/shared/run-lane.md`.
 
 ## Steps
 
@@ -52,14 +52,17 @@ Use the `Task` tool to invoke `tdd-implementer` with:
 
 ### Step 4 — Verification gate
 
-After the implementer reports completion, invoke `commands/shared/run-tests.md` with the configured `testCommand`.
+After the implementer reports completion, invoke `commands/shared/run-lane.md` for the lanes bound to `taskCompleted` — the fast inner loop. Do NOT run `commit` or `push` lanes here; verifying one work item against a browser suite is the wrong trade, and `/tdd-guardian:gate` exists for that.
 
-| run-tests result | Action |
-|------------------|--------|
+If the work item's test matrix assigned cases to the `integration` lane, run that lane too and say that you did.
+
+| run-lane result | Action |
+|-----------------|--------|
 | `pass` | Mark WI-N DONE. Print next-step hint. |
 | `fail` | Print the failing tests; prompt user whether to re-dispatch the implementer with the failure output as context, or stop. |
 | `no-tests` | Stop with: "Test runner reports no tests discovered. The implementer did not add tests as instructed." |
-| `runner-missing` / `runner-error` / `killed` | Stop with the environment-error text from run-tests.md — do NOT re-dispatch the implementer. |
+| `coverage-missing` | Stop. The lane's coverage command or path is wrong — point at `/tdd-guardian:probe`. |
+| `runner-missing` / `runner-error` / `killed` / `timeout` | Stop with the environment-error text from run-lane.md — do NOT re-dispatch the implementer. It would edit correct code to chase a broken runner. |
 
 ### Step 5 — Persist status
 
@@ -92,9 +95,10 @@ This file is already in `.gitignore` (per `/tdd-guardian:init`).
 - `{source file}`: {brief description}
 
 ## Verification
-- Command: `{testCommand}`
-- Result: PASS | FAIL | runner-error
-- Details: {summary — passed count, failed count, duration}
+- Lanes run: `{names — the taskCompleted lanes, plus integration when the matrix assigned cases to it}`
+- Result: PASS | FAIL | no-tests | coverage-missing | runner-error
+- Details: {per lane — passed count, failed count, duration}
+- Not run: {lanes on commit/push triggers, with "run /tdd-guardian:gate <trigger>"}
 
 ## Next step
 - On PASS: run `/tdd-guardian:implement WI-{N+1}` (or `/tdd-guardian:audit-coverage` if this was the last work item).

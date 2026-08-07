@@ -23,7 +23,7 @@ Orchestrate the full TDD Guardian pipeline by chaining the six focused commands 
 
 ## Mandatory rules
 
-1. Follow `tdd-guardian:policy-core` throughout.
+1. Follow `tdd-guardian:policy-core` throughout, and `tdd-guardian:workflow` for stage ordering and stop conditions.
 2. Stop at the FIRST gate failure. Do not cascade.
 3. Never run `git commit`, `git push`, or `gh pr create` from within the workflow. The workflow's job is to get gates green; committing is the user's decision.
 4. Every stage persists its artifact under `.claude/tdd-guardian/` so the next stage can resume without re-prompting.
@@ -93,6 +93,12 @@ Invoke `/tdd-guardian:review` (full scope — the review command defaults to unc
 | CHANGES REQUESTED | Stop; list Medium findings and the fix commands |
 | BLOCKED | Stop; list High findings |
 
+### Step 7b — Refresh the commit gate
+
+Invoke `/tdd-guardian:gate commit` so every lane gating a commit has a fresh pass recorded. Without this the user hits a stale-gate denial immediately after a green workflow, which reads as a bug.
+
+If any lane has `push` in its `gateOn`, do **not** run it. Name it in the summary and point at `/tdd-guardian:gate push` — it can take tens of minutes and may need services the user has not started.
+
 ### Step 8 — Final summary
 
 ```markdown
@@ -100,9 +106,11 @@ Invoke `/tdd-guardian:review` (full scope — the review command defaults to unc
 
 **Task**: {validated description}
 **Work items**: {N} DONE
-**Coverage**: PASS — L {l}% / F {f}% / B {b}% / S {s}%
+**Lanes run**: {names — and which were skipped, with the reason}
+**Coverage**: PASS — L {l}% / F {f}% / B {b}% / S {s}% (merge: {method})
 **Mutation**: PASS — {score}% ({killed} killed, {survived} survived) | SKIPPED (disabled)
 **Review**: APPROVED{ + WITH NOTES, if any}
+**Push lanes**: {fresh | "e2e not run — run /tdd-guardian:gate push before pushing"}
 
 ## Artifacts
 

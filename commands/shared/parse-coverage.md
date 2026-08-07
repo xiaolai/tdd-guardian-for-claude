@@ -1,117 +1,116 @@
 ---
-description: "Shared: parse coverage output into normalized metrics across Jest/Vitest, LCOV, cobertura, Go cover, coverage.py"
+description: "Shared: parse and merge coverage across 9 formats — Istanbul, coverage.py, LCOV, Cobertura, JaCoCo, Clover, go-cover, SimpleCov"
 user-invocable: false
 ---
 <!-- Shared partial: coverage parser -->
-<!-- Referenced by: audit-coverage, status, workflow. Do not use standalone. -->
+<!-- Referenced by: audit-coverage, status, gate, workflow. Do not use standalone. -->
 
 ## Purpose
 
-Read the coverage summary file at `{coverageSummaryPath}` and normalize it into a single shape so the coverage-auditor and status commands can compare against thresholds without caring about the source format.
+Read each contributing lane's coverage report, normalize it, and merge the results so the gate can compare against thresholds without caring which tools produced them.
 
-## Steps
+This is implemented in `scripts/tdd-guardian/lib/coverage.js` and covered by `tests/coverage.test.js`. **Run it rather than parsing by hand** — hand-parsing XML and LCOV in a prompt is where wrong numbers come from:
 
-### Step 1 — Locate the file
+```bash
+node -e "
+const c=require('<plugin-root>/scripts/tdd-guardian/lib/coverage.js');
+const r=['<path1>','<path2>'].map(p=>c.parseFile(p,process.cwd()));
+const errs=r.filter(x=>x.error).map(x=>x.error);
+if(errs.length){console.error(errs.join('\n'));process.exit(1)}
+const merged=c.mergeReports(r.map(x=>x.report));
+console.log(JSON.stringify({merged:merged.totals,method:merged.method,approximate:merged.approximate,formats:merged.formats},null,2));
+"
+```
 
-Read `{coverageSummaryPath}` from config (resolved against workspace root). If missing:
+## Step 1 — Locate each report
+
+For every lane with `coverage: "include"`, resolve its `coverageSummaryPath` against the workspace root. If a file is missing:
 
 ```
 Coverage summary not found at {coverageSummaryPath}.
 
 Likely causes:
-1. Coverage command has not been run yet — run the full gate first.
-2. Coverage command completed but wrote the output elsewhere — check your runner's coverage reporter config.
-3. The `coverageSummaryPath` in config is wrong — re-run /tdd-guardian:init or edit it by hand.
+1. The coverage command has not run yet.
+2. The coverage command ran but wrote elsewhere — check your reporter config.
+3. coverageSummaryPath in config is wrong — re-run /tdd-guardian:init.
 ```
 
-And STOP.
+And STOP. A missing report is never zero coverage.
 
-### Step 2 — Detect format
+## Step 2 — Detect the format
 
-Sniff the first non-whitespace bytes and the file extension:
+Detection is by content, with the file extension as a last resort only.
 
-| Hint | Format |
-|------|--------|
-| Starts with `{` and has a top-level `total` key | Istanbul JSON summary (Jest, Vitest, nyc) |
-| Starts with `{` and has `coverage_percent` or `files` | coverage.py JSON |
-| Starts with `{` and has `data[0].totals` with `percent_covered` | coverage.py v7+ JSON |
-| Starts with `TN:` or `SF:` | LCOV info (node --test, cargo-llvm-cov lcov) |
-| Starts with `<?xml` and root `<coverage>` | Cobertura XML (cargo-tarpaulin, others) |
-| Starts with `mode:` and lines like `path/file.go:start.col,end.col N M` | Go cover profile |
+| Signal | Format |
+|--------|--------|
+| `mode: set\|count\|atomic` on the first line | `go-cover` |
+| Lines starting `TN:` or `SF:` | `lcov` |
+| XML with `<report>` and a jacoco DTD/marker | `jacoco` |
+| XML with `<coverage line-rate=…>` or `lines-valid=` | `cobertura` |
+| XML with `<coverage>` and `<project>` | `clover` |
+| JSON with `totals.num_statements`, or `files.*.summary` | `coverage-py` |
+| JSON with `total.lines.pct` | `istanbul-summary` |
+| JSON whose values have `statementMap` and `s` | `istanbul-final` |
+| JSON whose values have a `coverage` key | `simplecov` |
 
-If the file doesn't match any known format, stop with: `Unrecognized coverage format at {path}. First bytes: {first-80-chars}`.
+Unrecognized content stops with the format list and the first 80 characters, so the user can see what was actually read.
 
-### Step 3 — Extract per-format
+## Step 3 — Normalize
 
-#### Istanbul JSON summary
-
-```
-total.lines.pct       → lines
-total.functions.pct   → functions
-total.branches.pct    → branches
-total.statements.pct  → statements
-```
-
-Per-file breakdown is available under the top-level object keys (one entry per source file).
-
-#### coverage.py JSON
-
-Older format (`coverage json` pre-v7):
-- `totals.percent_covered` → lines (coverage.py tracks statements/branches; map statement coverage to both `lines` and `statements` fields)
-- `totals.percent_covered_display` is a string — prefer the numeric `percent_covered`
-- If `--branch` was enabled, use `totals.num_branches` / `totals.covered_branches` to compute branches %
-- `functions` is not tracked by coverage.py — return `null` (callers must treat null as "not measured" and not fail thresholds on it)
-
-v7+ format:
-- `data[0].totals.percent_covered` and `.num_branches` / `.covered_branches` as above.
-
-#### LCOV
-
-Aggregate across all `SF:` blocks:
-- `LH:` summed / `LF:` summed → lines %
-- `FNH:` summed / `FNF:` summed → functions %
-- `BRH:` summed / `BRF:` summed → branches %
-- `statements` is not tracked — mirror `lines` into it.
-
-#### Cobertura XML
-
-- `coverage[@line-rate]` × 100 → lines (and statements — cobertura treats them as one)
-- `coverage[@branch-rate]` × 100 → branches
-- Functions: compute from `<method>` elements if present, else null.
-
-#### Go cover profile
-
-Parse every line `path:start.col,end.col NumStmt Count`. Sum `NumStmt` where `Count > 0` and where total.
-- `statements` = covered / total × 100
-- Mirror to `lines`.
-- Go cover does not track functions or branches — return null for both.
-
-### Step 4 — Normalize
-
-Return to the caller:
+Every parser returns:
 
 ```
 {
-  format: "istanbul-json" | "coverage-py" | "lcov" | "cobertura" | "go-cover",
-  totals: {
-    lines: number | null,
-    functions: number | null,
-    branches: number | null,
-    statements: number | null
-  },
-  perFile: [
-    { path: string, lines: number, functions: number | null, branches: number | null, statements: number | null, uncoveredLines: number[] }
-  ]
+  format: string,
+  hasLineDetail: boolean,
+  totals: { lines: M|null, functions: M|null, branches: M|null, statements: M|null },
+  files: [{ path, lines: M|null, functions: M|null, branches: M|null, statements: M|null,
+            lineHits: {line: hits}|null, uncoveredLines: [n] }]
 }
 ```
 
-All percentages are rounded to 2 decimal places. Uncovered lines come from the per-file data where available (`lines.details`, `SF:DA:` zero hits, or `Count == 0` ranges for Go).
+where `M` is `{covered, total, pct}` and percentages are rounded to 2 decimals.
 
-### Step 5 — Null-aware comparison rule
+Format-specific mappings worth knowing:
 
-Null means "this metric is not measured by this tool" — NOT zero. When comparing against thresholds:
+| Format | Notes |
+|--------|-------|
+| `istanbul-summary` | Totals only, **no per-line detail** — forces the weighted merge fallback |
+| `istanbul-final` | Line hits derived from `statementMap` + `s`; branches from `b` arrays |
+| `coverage-py` | Statements and lines are the same axis; functions `null`; branches only with `branch = true` |
+| `lcov` | `LF`/`LH` for lines, `FNF`/`FNH` for functions, `BRF`/`BRH` for branches; statements mirror lines |
+| `cobertura` | Root `lines-valid`/`lines-covered` preferred over the per-class scan; branches from `condition-coverage` |
+| `jacoco` | `LINE`/`BRANCH`/`METHOD` counters; `INSTRUCTION` is bytecode-level so statements mirror lines instead |
+| `clover` | Project `<metrics>` preferred; `type="method"` lines are functions, `type="cond"` lines carry `truecount`/`falsecount` rather than `count` |
+| `go-cover` | Statements weighted by `NumStmt`; functions and branches `null` |
+| `simplecov` | Array indexed by line; `null` entries are lines the tool does not track and must not count toward the total |
 
-- If the threshold is `> 0` and the metric is `null`, return a WARNING (not a failure) with: `{metric} coverage is not measured by {format}. Configure your coverage tool to emit it, or lower the threshold to 0.`
-- If the metric is a number below threshold, that's a FAILURE.
+## Step 4 — Merge across lanes
 
-This prevents false failures on tools that legitimately don't track a dimension (e.g., functions in LCOV-only output).
+| Lanes | Method | Accuracy |
+|-------|--------|----------|
+| 1 | `single` | Exact |
+| 2+, all with `hasLineDetail` | `union` | Exact — a line hit by any lane counts once |
+| 2+, at least one without | `weighted` | **Approximate** — sums covered/total, so a line hit by two lanes is counted twice |
+
+When the merge is `weighted`, the report MUST say so. A weighted number quoted as if it were a union is a wrong number presented confidently. Tell the user which lane forced the fallback and that emitting LCOV or Cobertura from it would make the merge exact.
+
+## Step 5 — Null-aware comparison
+
+`null` means "this tool does not measure this dimension" — NOT zero.
+
+- Threshold `> 0` and metric is `null` → **WARNING**: `{metric} coverage is not measured by {format}. Configure your coverage tool to emit it, or set the {metric} threshold to 0.`
+- Metric is a number below threshold → **FAILURE**, reported with covered/total counts, not just the percentage.
+
+This prevents false failures on tools that legitimately do not track a dimension — go-cover has no functions or branches, coverage.py has no functions, SimpleCov has neither by default.
+
+## Step 6 — Reject an empty report
+
+If the merged totals have zero measurable lines and statements, FAIL with:
+
+```
+Coverage report contains zero measurable lines. The coverage run almost certainly produced nothing.
+Formats read: {formats}. Check that the coverage command instruments your source and writes to coverageSummaryPath.
+```
+
+By the 0/0 convention an empty report scores 100%, so without this check a silent no-op coverage run passes every threshold and looks perfect.
