@@ -1,0 +1,159 @@
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: tests (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 18 is the minimum the plugin claims to support. Verified, not assumed.
+        node: ['18', '20', '22', '24']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Run the test suite
+        id: run
+        run: |
+          set -o pipefail
+          # `node --test` with a quoted glob needs Node 21+ and SILENTLY matches
+          # nothing on older versions while exiting 0. The bare form discovers
+          # tests/ on every supported version — do not "simplify" this to a glob.
+          node --test 2>&1 | tee test-output.txt
+
+      - name: Assert the run actually verified something
+        run: |
+          out=$(cat test-output.txt)
+          # Node <=22 emits TAP ("# tests 162"), Node 24 emits spec ("ℹ tests 162").
+          num() { echo "$out" | grep -oE "^[#ℹ] $1 [0-9]+" | grep -oE '[0-9]+$' | head -1; }
+          tests=$(num tests); pass=$(num pass); fail=$(num fail); skipped=$(num skipped)
+          echo "tests=$tests pass=$pass fail=$fail skipped=${skipped:-0}"
+
+          # A suite that discovered nothing exits 0. Green with nothing run is
+          # indistinguishable from green with everything run — the invariant this
+          # plugin enforces, applied to its own CI.
+          if [ -z "$tests" ] || [ "$tests" -eq 0 ]; then
+            echo "::error::Test runner discovered zero tests. The suite did not run."
+            exit 1
+          fi
+          if [ "${fail:-1}" -ne 0 ]; then
+            echo "::error::$fail test(s) failed."
+            exit 1
+          fi
+          # CI installs git, so the git-dependent tests must not skip here.
+          if [ "${skipped:-0}" -ne 0 ]; then
+            echo "::error::$skipped test(s) skipped. CI has git, so nothing should skip."
+            exit 1
+          fi
+
+          # The README carries a static "tests N passing" badge. Fail if it drifted.
+          expected=$(grep -oE 'tests-[0-9]+%20passing' README.md | grep -oE '[0-9]+' | head -1)
+          if [ -n "$expected" ] && [ "$tests" -ne "$expected" ]; then
+            echo "::error::README badge claims $expected tests but the suite has $tests. Update the badge in README.md."
+            exit 1
+          fi
+
+  artifacts:
+    name: nl artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate every JSON file
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f" \
+              || { echo "::error file=$f::invalid JSON"; fail=1; }
+          done < <(git ls-files '*.json')
+          exit $fail
+
+      - name: Fetch nlpm
+        id: nlpm
+        continue-on-error: true
+        run: git clone --depth 1 https://github.com/xiaolai/nlpm.git "$RUNNER_TEMP/nlpm"
+
+      - name: Report unavailable nlpm loudly
+        if: steps.nlpm.outcome != 'success'
+        run: echo "::warning::Could not fetch xiaolai/nlpm — nlpm-check and badge verification were SKIPPED, not passed."
+
+      - name: nlpm-check (strict)
+        if: steps.nlpm.outcome == 'success'
+        run: "$RUNNER_TEMP/nlpm/bin/nlpm-check --strict ."
+
+      - name: Verify the committed badge is current
+        if: steps.nlpm.outcome == 'success'
+        run: |
+          "$RUNNER_TEMP/nlpm/bin/nlpm-check" --json . \
+            | "$RUNNER_TEMP/nlpm/bin/nlpm-badge" > /tmp/nlpm-badge.expected.json
+          if ! diff -u nlpm-badge.json /tmp/nlpm-badge.expected.json; then
+            echo "::error file=nlpm-badge.json::Badge is stale. Regenerate: nlpm-check --json . | nlpm-badge > nlpm-badge.json"
+            exit 1
+          fi
+
+      - name: Flag a stale score attestation
+        run: |
+          # The nlpm score needs the scorer agent, which CI cannot run. So this
+          # warns rather than fails — but it never stays silent, because a score
+          # badge describing artifacts that have since changed is a claim about
+          # nothing. The check is a content hash, not a timestamp: a timestamp
+          # comparison fires on every commit that touches an artifact, including
+          # the commit recording the score, until people stop reading it.
+          if ! out=$(python3 scripts/ci/nl-artifacts-hash.py --check 2>&1); then
+            echo "$out"
+            echo "::warning file=nlpm-score.json::$(echo "$out" | head -1) Re-run /nlpm:score, update nlpm-score.json and the README score badge."
+          else
+            echo "$out"
+          fi
+
+  hooks:
+    name: hook smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Hooks stay silent on an uninitialised project
+        run: |
+          tmp=$(mktemp -d)
+          out=$(echo "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m x\"},\"cwd\":\"$tmp\"}" \
+            | node scripts/tdd-guardian/pretool_guard.js)
+          if [ -n "$out" ]; then
+            echo "::error::PreToolUse must emit nothing for a project with no config. Got: $out"
+            exit 1
+          fi
+          out=$(echo "{\"cwd\":\"$tmp\"}" | node scripts/tdd-guardian/taskcompleted_gate.js)
+          if [ -n "$out" ]; then
+            echo "::error::TaskCompleted must emit nothing for a project with no config. Got: $out"
+            exit 1
+          fi
+
+      - name: Hooks survive malformed input without crashing
+        run: |
+          for script in pretool_guard taskcompleted_gate; do
+            echo 'not json' | node "scripts/tdd-guardian/$script.js" >/dev/null \
+              || { echo "::error::$script crashed on malformed stdin"; exit 1; }
+            printf '' | node "scripts/tdd-guardian/$script.js" >/dev/null \
+              || { echo "::error::$script crashed on empty stdin"; exit 1; }
+          done

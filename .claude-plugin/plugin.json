@@ -1,7 +1,7 @@
 {
   "name": "tdd-guardian",
-  "version": "0.7.3",
-  "description": "TDD Guardian \u2014 enforces strict test-driven development discipline in Claude Code with quality gates, coverage enforcement, and mutation testing",
+  "version": "0.8.1",
+  "description": "TDD Guardian \u2014 enforces strict test-driven development in Claude Code with per-lane gates (unit/integration/e2e/contract), CI-first tooling detection with dry-run verification, 9-format coverage merging, and mutation testing across 25+ languages",
   "author": {
     "name": "xiaolai"
   },
@@ -12,7 +12,9 @@
     "testing",
     "coverage",
     "mutation-testing",
-    "quality-gates"
+    "quality-gates",
+    "e2e",
+    "integration-testing"
   ],
   "category": "developer-tools"
 }

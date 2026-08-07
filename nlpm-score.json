@@ -1,0 +1,12 @@
+{
+  "score": 100,
+  "max_score": 100,
+  "artifacts_scored": 32,
+  "checked_at": "2026-08-07T12:29:13+00:00",
+  "scored_by": "nlpm:scorer",
+  "nlpm_version": "1.2.4",
+  "rubric": "skills/nlpm/scoring/SKILL.md v0.3.1",
+  "artifacts_sha256": "f0e718a2a37e57d5aee3e2047379379784a0eed7658de5b4dad27c9fb3a6b912",
+  "note": "32 scored artifacts (agents, commands, shared partials, skills, CLAUDE.md). artifacts_sha256 covers 47 files \u2014 the scored set plus skill reference pages and .nlpm-test specs, which the rubric has no penalty table for. CI cannot recompute the score (it needs the nlpm scorer agent), so it verifies the hash: if that drifts, the score claim is stale.",
+  "artifacts_hashed": 47
+}
