@@ -2,7 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "description": "Guards Bash tool calls; blocks commits that skip test/coverage gates per config",
+        "description": "Guards Bash tool calls; checks that every lane gating a commit or push has a fresh pass",
         "matcher": "Bash",
         "hooks": [
           {
@@ -14,7 +14,7 @@
     ],
     "TaskCompleted": [
       {
-        "description": "Runs tests and coverage after task completion; reports gate results",
+        "description": "Runs the taskCompleted lanes after task completion, merges coverage, and records per-lane gate state",
         "hooks": [
           {
             "type": "command",
