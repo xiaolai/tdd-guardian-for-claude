@@ -1,13 +1,25 @@
 {
+  "schemaVersion": 2,
   "enabled": true,
   "enforceOnTaskCompleted": false,
   "blockCommitWithoutFreshGate": false,
+  "staleGateAction": "deny",
   "gateFreshnessMinutes": 120,
+  "smartStaleness": true,
   "bypassEnv": "TDD_GUARD_BYPASS",
   "preflightCommand": "",
-  "testCommand": "pnpm test",
-  "coverageCommand": "pnpm test -- --coverage",
-  "coverageSummaryPath": "coverage/coverage-summary.json",
+  "lanes": [
+    {
+      "name": "unit",
+      "description": "In-process tests. No external services.",
+      "command": "pnpm exec vitest run --coverage",
+      "gateOn": ["taskCompleted", "commit"],
+      "coverage": "include",
+      "coverageSummaryPath": "coverage/coverage-summary.json",
+      "probeCommand": "pnpm exec vitest list",
+      "timeoutMs": 600000
+    }
+  ],
   "coverageThresholds": {
     "lines": 100,
     "functions": 100,
@@ -15,7 +27,7 @@
     "statements": 100
   },
   "coverageMode": "absolute",
-  "smartStaleness": true,
   "requireMutation": false,
-  "mutationCommand": ""
+  "mutationCommand": "",
+  "mutationGateOn": ["taskCompleted"]
 }
