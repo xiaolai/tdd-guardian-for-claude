@@ -2,11 +2,11 @@
   "score": 100,
   "max_score": 100,
   "artifacts_scored": 33,
-  "checked_at": "2026-08-15T02:05:15+00:00",
+  "checked_at": "2026-08-15T02:29:42+00:00",
   "scored_by": "nlpm:scorer",
   "nlpm_version": "1.2.5",
   "rubric": "skills/nlpm/scoring/SKILL.md v0.3.1",
-  "artifacts_sha256": "bf9b056a06002c602b306b29a41b273749f850ae0b829123b6189da55694b870",
+  "artifacts_sha256": "cd1e7c5fe0e6b2f079d0effdd0ce21c9e5ba772505cdacf5e572b6781bb83b97",
   "note": "33 scored artifacts (7 agents, 11 commands, 5 shared partials, 9 skills, CLAUDE.md). artifacts_sha256 covers 49 files. Two defects found and fixed during scoring: all 7 agents declared `allowed-tools:` (a command field) instead of `tools:`, so their documented least-privilege restriction was never in effect; and CLAUDE.md exceeded the 200-line budget. Artifacts were edited again by the post-release audit-fix pass, so this hash covers that text too. CI cannot recompute the score (it needs the nlpm scorer agent), so it verifies the hash: if that drifts, the score claim is stale.",
   "artifacts_hashed": 49
 }

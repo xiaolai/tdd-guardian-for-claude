@@ -46,6 +46,10 @@ const STALE_ACTIONS = ["deny", "warn"];
 // expensive to get wrong is specified by more than examples.
 const SPEC_LEVELS = ["S1", "S2", "S3", "S4", "S5", "S6"];
 
+// Patterns that compile to no segments. They select nothing, so an entry using
+// one enforces nothing while reading as configured.
+const DEGENERATE_GLOBS = new Set([".", "..", "/", "./", "//"]);
+
 const DEFAULT_THRESHOLDS = { lines: 100, functions: 100, branches: 100, statements: 100 };
 const DEFAULT_LANE_TIMEOUT_MS = 600000;
 const LANE_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
@@ -155,9 +159,22 @@ function normalizeCriticalPath(raw, index) {
   const errors = [];
   const entry = {};
 
-  entry.glob = String(raw?.glob || "").trim();
+  // Type first. `String(123)` is "123" and `String(["src/**"])` is "src/**", so a
+  // coerced glob is accepted and then silently selects nothing — or, worse,
+  // accidentally works and hides the config error.
+  if (raw?.glob !== undefined && typeof raw.glob !== "string") {
+    errors.push(`criticalPaths[${index}]: glob must be a string — got ${Array.isArray(raw.glob) ? "an array" : typeof raw.glob}.`);
+  }
+  entry.glob = typeof raw?.glob === "string" ? raw.glob.trim() : "";
   if (!entry.glob) {
-    errors.push(`criticalPaths[${index}]: missing required field 'glob'.`);
+    if (raw?.glob === undefined) errors.push(`criticalPaths[${index}]: missing required field 'glob'.`);
+  } else if (DEGENERATE_GLOBS.has(entry.glob)) {
+    // These compile to a pattern with no segments, which matches nothing and then
+    // fails the gate with a confusing "matched no file". Say the real thing here.
+    errors.push(
+      `criticalPaths[${index}] ('${entry.glob}'): '${entry.glob}' selects no project file. ` +
+        `Name the directory or files the rule covers, e.g. "src/payments/**".`
+    );
   } else if (entry.glob.includes("{")) {
     // Brace expansion is not implemented. Silently failing to match would apply a
     // strict rule to nothing while reporting success, so it is rejected instead.
@@ -176,9 +193,13 @@ function normalizeCriticalPath(raw, index) {
   // `Number(false)` are all 0, so a loose check turns a typo into a threshold of
   // zero — a bar that can never fail, silently, on exactly the paths the user
   // marked as most expensive to get wrong.
+  // `null` is accepted as a spelling of "inherit": JSON has no undefined, and a
+  // config generator emitting an explicit null means the same thing as omitting
+  // the key. It resolves to the repo-wide thresholds either way, so nothing is
+  // silently unenforced.
   if (raw?.thresholds === undefined || raw?.thresholds === null) {
     entry.thresholds = null;
-  } else if (typeof raw.thresholds !== "object" || Array.isArray(raw.thresholds)) {
+  } else if (typeof raw.thresholds !== "object" || Array.isArray(raw.thresholds) || Object.getPrototypeOf(raw.thresholds) === null || raw.thresholds.constructor !== Object) {
     errors.push(
       `criticalPaths[${index}] ('${entry.glob || index}'): thresholds must be an object like ` +
         `{ "lines": 100, "branches": 100 } — got ${Array.isArray(raw.thresholds) ? "an array" : typeof raw.thresholds}.`
@@ -203,10 +224,25 @@ function normalizeCriticalPath(raw, index) {
     entry.thresholds = thresholds;
   }
 
+  // A non-boolean here used to normalize to false, so `"requireMutation": "true"`
+  // disabled the requirement without a word — the same silent-no-op shape as a
+  // string threshold.
+  if (raw?.requireMutation !== undefined && typeof raw.requireMutation !== "boolean") {
+    errors.push(
+      `criticalPaths[${index}] ('${entry.glob || index}'): requireMutation must be true or false — got ` +
+        `${typeof raw.requireMutation === "string" ? `the string '${raw.requireMutation}'` : typeof raw.requireMutation}.`
+    );
+  }
   entry.requireMutation = raw?.requireMutation === true;
 
-  const specLevel = String(raw?.requireSpecLevel || "").trim().toUpperCase();
-  if (specLevel && !SPEC_LEVELS.includes(specLevel)) {
+  if (raw?.requireSpecLevel !== undefined && typeof raw.requireSpecLevel !== "string") {
+    errors.push(
+      `criticalPaths[${index}] ('${entry.glob || index}'): requireSpecLevel must be a string — got ` +
+        `${Array.isArray(raw.requireSpecLevel) ? "an array" : typeof raw.requireSpecLevel}.`
+    );
+  }
+  const specLevel = typeof raw?.requireSpecLevel === "string" ? raw.requireSpecLevel.trim().toUpperCase() : "";
+  if (raw?.requireSpecLevel !== undefined && typeof raw.requireSpecLevel === "string" && !SPEC_LEVELS.includes(specLevel)) {
     errors.push(
       `criticalPaths[${index}] ('${entry.glob || index}'): requireSpecLevel must be one of ${SPEC_LEVELS.join(", ")} — got '${raw.requireSpecLevel}'.`
     );

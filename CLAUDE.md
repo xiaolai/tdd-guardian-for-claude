@@ -164,7 +164,7 @@ node --test                         # discovers tests/, works on Node 18+
 node --test tests/coverage.test.js  # one file
 ```
 
-292 tests cover every coverage format, config migration and validation, critical-path evaluation and glob matching, lane selection and freshness, exit-code classification, red-receipt classification and verification, the receipt CLI, and both hooks end to end.
+302 tests cover every coverage format, config migration and validation, critical-path evaluation and glob matching, lane selection and freshness, exit-code classification, red-receipt classification and verification, the receipt CLI, and both hooks end to end.
 
 **Do not "simplify" the bare form to `node --test "tests/**/*.test.js"`.** Node's `--test` glob support arrived in Node 21; on 18 and 20 that invocation matches nothing, runs no tests, and **exits 0** — a silent green no-op of exactly the kind this plugin exists to catch.
 

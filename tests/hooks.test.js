@@ -889,3 +889,97 @@ test("taskcompleted: a receipt for a lane that did not run stays open", () => {
   const stored = JSON.parse(fs.readFileSync(path.join(dir, ".claude", "tdd-guardian", "receipts.json"), "utf8"));
   assert.equal(stored.receipts[0].verdict, null, "a lane that never ran cannot settle its receipt");
 });
+
+// ---------------------------------------------------------------------------
+// TaskCompleted — enforcement that was configured but structurally unreachable
+// ---------------------------------------------------------------------------
+
+test("taskcompleted: enforcement configured with no taskCompleted lane blocks instead of going quiet", () => {
+  // Returning early here skipped the coverage, critical-path, and mutation gates
+  // entirely: enforcement requested, nothing enforced, no signal.
+  const dir = workspace({
+    enabled: true,
+    enforceOnTaskCompleted: true,
+    coverageThresholds: { lines: 100, functions: 100, branches: 100, statements: 100 },
+    criticalPaths: [{ glob: "src/payments/**" }],
+    lanes: [{ name: "unit", command: "true", gateOn: ["commit"] }],
+  });
+
+  const { decision } = runHook(TASKCOMPLETED, { cwd: dir });
+  assert.equal(decision.decision, "block");
+  assert.match(decision.reason, /nothing can be enforced/);
+  assert.match(decision.hookSpecificOutput.additionalContext, /coverage thresholds/);
+  assert.match(decision.hookSpecificOutput.additionalContext, /1 critical path/);
+});
+
+test("taskcompleted: no taskCompleted lane and nothing configured stays silent", () => {
+  const dir = workspace({
+    enabled: true,
+    enforceOnTaskCompleted: true,
+    coverageThresholds: { lines: 0, functions: 0, branches: 0, statements: 0 },
+    lanes: [{ name: "unit", command: "true", gateOn: ["commit"] }],
+  });
+
+  const { decision, stderr } = runHook(TASKCOMPLETED, { cwd: dir });
+  assert.equal(decision, null, "nothing to enforce is not a failure");
+  assert.match(stderr, /nothing to run/);
+});
+
+test("taskcompleted: an unrelated bootstrap lane does not exempt a mature lane's critical paths", () => {
+  // The exemption used to be global: any bootstrap lane skipped the whole
+  // coverage gate, so a brand-new e2e lane hid the unit lane's critical paths.
+  const report = summaryWith({ "src/payments/charge.ts": [5, 10] });
+  const dir = workspace({
+    enabled: true,
+    enforceOnTaskCompleted: true,
+    coverageThresholds: { lines: 0, functions: 0, branches: 0, statements: 0 },
+    criticalPaths: [{ glob: "src/payments/**", thresholds: { lines: 100 } }],
+    lanes: [
+      {
+        name: "unit",
+        command: `printf '%s' ${JSON.stringify(report)} > coverage.json && echo "Tests  1 passed (1)"`,
+        gateOn: ["taskCompleted"],
+        coverage: "include",
+        coverageSummaryPath: "coverage.json",
+      },
+      { name: "e2e", command: 'echo "No tests found"; exit 0', gateOn: ["taskCompleted"], coverage: "none" },
+    ],
+  });
+
+  const { decision } = runHook(TASKCOMPLETED, { cwd: dir });
+  assert.equal(decision.decision, "block");
+  assert.match(decision.hookSpecificOutput.additionalContext, /Critical-path coverage failed/);
+});
+
+test("taskcompleted: a coverage lane that produced no report fails rather than merging a subset", () => {
+  // An optional lane's failure means "do not block on its tests", not "measure
+  // the project against whatever happens to be left".
+  const report = summaryWith({ "src/a.ts": [10, 10] });
+  const dir = workspace({
+    enabled: true,
+    enforceOnTaskCompleted: true,
+    coverageThresholds: { lines: 100, functions: 100, branches: 100, statements: 100 },
+    lanes: [
+      {
+        name: "unit",
+        command: `printf '%s' ${JSON.stringify(report)} > coverage.json && echo "Tests  1 passed (1)"`,
+        gateOn: ["taskCompleted"],
+        coverage: "include",
+        coverageSummaryPath: "coverage.json",
+      },
+      {
+        name: "integration",
+        command: 'echo "Tests  1 failed | 0 passed (1)"; exit 1',
+        gateOn: ["taskCompleted"],
+        coverage: "include",
+        coverageSummaryPath: "coverage-integration.json",
+        optional: true,
+      },
+    ],
+  });
+
+  const { decision } = runHook(TASKCOMPLETED, { cwd: dir });
+  assert.equal(decision.decision, "block");
+  assert.match(decision.hookSpecificOutput.additionalContext, /produced no report: integration/);
+  assert.match(decision.hookSpecificOutput.additionalContext, /measured against a subset/);
+});

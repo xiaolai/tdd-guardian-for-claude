@@ -358,3 +358,51 @@ test("critical paths under no-decrease mode warn that the two bars are independe
   const { warnings } = withCriticalPaths([{ glob: "src/**" }], { coverageMode: "no-decrease" });
   assert.ok(warnings.some((w) => /coverageMode is "no-decrease"/.test(w)));
 });
+
+test("a non-string glob is rejected rather than coerced", () => {
+  // String(123) is "123" and String(["src/**"]) is "src/**", so a coerced glob is
+  // accepted and then selects nothing — or accidentally works, hiding the error.
+  for (const [glob, label] of [[123, "number"], [["src/**"], "an array"], [{}, "object"], [true, "boolean"]]) {
+    const { errors } = withCriticalPaths([{ glob }]);
+    assert.ok(errors.some((e) => /glob must be a string/.test(e)), `${label} should be rejected`);
+  }
+});
+
+test("a glob that selects nothing is rejected at config time", () => {
+  for (const glob of [".", "..", "/", "./"]) {
+    const { errors } = withCriticalPaths([{ glob }]);
+    assert.ok(errors.some((e) => /selects no project file/.test(e)), `'${glob}' should be rejected`);
+  }
+});
+
+test("a non-boolean requireMutation is rejected, not silently disabled", () => {
+  // `"requireMutation": "true"` used to normalize to false, turning an explicit
+  // requirement into nothing without a word.
+  for (const value of ["true", 1, {}]) {
+    const { errors } = withCriticalPaths([{ glob: "src/**", requireMutation: value }], { mutationCommand: "npx stryker run" });
+    assert.ok(errors.some((e) => /requireMutation must be true or false/.test(e)), `${JSON.stringify(value)} should be rejected`);
+  }
+});
+
+test("a non-string requireSpecLevel is rejected rather than coerced", () => {
+  for (const value of [["S3"], 0, {}]) {
+    const { errors } = withCriticalPaths([{ glob: "src/**", requireSpecLevel: value }]);
+    assert.ok(errors.some((e) => /requireSpecLevel must be a string/.test(e)), `${JSON.stringify(value)} should be rejected`);
+  }
+});
+
+test("a non-plain thresholds object is rejected", () => {
+  const { errors } = withCriticalPaths([{ glob: "src/**", thresholds: new Date() }]);
+  assert.ok(errors.some((e) => /thresholds must be an object/.test(e)));
+});
+
+test("null and {} thresholds both mean inherit, which is not an error", () => {
+  // JSON has no undefined, so a generator emitting an explicit null means the
+  // same as omitting the key. Both resolve to the repo-wide thresholds, so
+  // nothing goes unenforced either way.
+  for (const thresholds of [null, {}]) {
+    const { config: cfg, errors } = withCriticalPaths([{ glob: "src/**", thresholds }]);
+    assert.deepEqual(errors, []);
+    assert.ok(cfg, `thresholds: ${JSON.stringify(thresholds)} should be accepted`);
+  }
+});

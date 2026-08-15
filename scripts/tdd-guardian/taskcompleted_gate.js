@@ -76,9 +76,25 @@ function laneFailureReport(lane, result) {
   return lines.join("\n");
 }
 
-function runCoverageGate(config, laneResults, state, cwd, bootstrapLanes) {
+function runCoverageGate(config, laneResults, state, cwd, bootstrapLanes, coverageLanes) {
   const reports = laneResults.filter((r) => r.coverageReport).map((r) => r.coverageReport);
-  const inBootstrap = bootstrapLanes.length > 0;
+
+  // The bootstrap exemption belongs to the lanes that were supposed to MEASURE
+  // something, not to any lane at all. A brand-new e2e lane in bootstrap used to
+  // exempt the whole coverage gate, so a mature unit lane's critical paths were
+  // never evaluated.
+  //
+  // With no coverage-contributing lane at all, the exemption falls back to "every
+  // lane that ran is in bootstrap" — the genuine greenfield state, where nothing
+  // has been verified yet and there is nothing to measure.
+  const expected = coverageLanes || [];
+  const inBootstrap = expected.length
+    ? expected.every((name) => bootstrapLanes.includes(name))
+    : bootstrapLanes.length > 0 && bootstrapLanes.length === laneResults.length;
+
+  // A coverage lane that ran and produced no report leaves the merge incomplete.
+  // Passing on a subset silently understates — or overstates — every threshold.
+  const missing = expected.filter((name) => !bootstrapLanes.includes(name) && !laneResults.some((r) => r.name === name && r.coverageReport));
 
   if (reports.length === 0) {
     // A critical path can demand coverage the repo-wide thresholds do not: global
@@ -103,6 +119,22 @@ function runCoverageGate(config, laneResults, state, cwd, bootstrapLanes) {
       message:
         "Coverage thresholds are set but no lane produced a coverage report.\n" +
         'Set coverage:"include" and coverageSummaryPath on the lane that emits coverage, or set all thresholds to 0.',
+      record: null,
+    };
+  }
+
+  const wantsEnforcement =
+    Object.values(config.coverageThresholds).some((v) => Number(v) > 0) ||
+    (config.criticalPaths || []).some((p) => Object.values(p.thresholds || {}).some((v) => Number(v) > 0)) ||
+    (config.criticalPaths || []).length > 0;
+
+  if (missing.length && wantsEnforcement) {
+    return {
+      ok: false,
+      message:
+        `Coverage is enforced, but ${missing.length} lane(s) with coverage:"include" produced no report: ${missing.join(", ")}.\n` +
+        `The merge would cover only part of the project, so every threshold below it would be measured against a subset. ` +
+        `Fix the lane, or set coverage:"none" on it if it is not meant to contribute.`,
       record: null,
     };
   }
@@ -237,7 +269,18 @@ function reportSeparation(cwd, log, greenLanes) {
   // Only lanes that just passed can settle a receipt. A receipt for a lane that
   // did not run — or ran red — stays open rather than banking a verdict about a
   // transition that has not happened.
-  const { store: verified, reports } = verification.verifyAll(store, cwd, { greenLanes });
+  let verified;
+  let reports;
+  try {
+    ({ store: verified, reports } = verification.verifyAll(store, cwd, { greenLanes }));
+  } catch (err) {
+    // Report-only means report-only: a bug in receipt verification must not fail
+    // a gate whose lanes and coverage both passed.
+    console.error(`[tdd-guardian] Red-receipt verification failed: ${err && err.message ? err.message : String(err)}`);
+    log.push(`Red-receipt verification could not run: ${err && err.message ? err.message : String(err)}`);
+    return;
+  }
+
   try {
     // Under the same lock the CLI uses — otherwise a concurrent `receipt record`
     // and this hook can each save a store missing the other's receipt.
@@ -292,6 +335,20 @@ function describeCriticalResults(results) {
   const parts = [`${checked} critical path(s) checked`];
   if (unmatched.length) parts.push(`${unmatched.length} matched nothing: ${unmatched.join(", ")}`);
   return ` (${parts.join("; ")})`;
+}
+
+/**
+ * What has this project asked the taskCompleted gate to enforce?
+ *
+ * Used to tell "nothing configured, so nothing to do" apart from "enforcement
+ * configured but structurally unreachable", which must never pass quietly.
+ */
+function enforcementDemands(config) {
+  const demands = [];
+  if (Object.values(config.coverageThresholds).some((v) => Number(v) > 0)) demands.push("coverage thresholds");
+  if ((config.criticalPaths || []).length) demands.push(`${config.criticalPaths.length} critical path(s)`);
+  if (mutationRequirement(config).required && config.mutationGateOn.includes("taskCompleted")) demands.push("mutation testing");
+  return demands;
 }
 
 function describeTotals(percentages) {
@@ -357,7 +414,24 @@ function main() {
 
   const lanes = lanesLib.lanesForTrigger(config, "taskCompleted");
   if (lanes.length === 0) {
-    console.error("[tdd-guardian] No lanes are bound to the taskCompleted trigger — nothing to run.");
+    // Returning here used to skip the coverage, critical-path, and mutation gates
+    // entirely. A project that switched enforcement on and configured thresholds
+    // then got silence — enforcement requested, nothing enforced, no signal.
+    const demands = enforcementDemands(config);
+    if (demands.length === 0) {
+      console.error("[tdd-guardian] No lanes are bound to the taskCompleted trigger — nothing to run.");
+      return;
+    }
+    lanesLib.saveState(cwd, state);
+    block(
+      "No lane is bound to taskCompleted, so nothing can be enforced",
+      [
+        "enforceOnTaskCompleted is true and this project configures: " + demands.join(", ") + ".",
+        "But no lane has \"taskCompleted\" in its gateOn, so no suite runs and none of it is evaluated.",
+        "",
+        'Add "taskCompleted" to the gateOn of your fast lane, or set enforceOnTaskCompleted to false.',
+      ].join("\n")
+    );
     return;
   }
 
@@ -406,7 +480,28 @@ function main() {
   // into noise — the failure mode `lane-policy` names for flaky-test retries.
   reportSeparation(cwd, log, greenLanes);
 
-  const coverageGate = runCoverageGate(config, laneResults, state, cwd, bootstrapLanes);
+  const coverageLaneNames = lanes.filter((l) => l.coverage === "include").map((l) => l.name);
+  let coverageGate;
+  try {
+    coverageGate = runCoverageGate(config, laneResults, state, cwd, bootstrapLanes, coverageLaneNames);
+  } catch (err) {
+    // A crash emits no JSON, which the harness reads as "no opinion" — a silent
+    // allow on the gate that was meant to be strictest. Fail closed instead.
+    lanesLib.saveState(cwd, state);
+    block(
+      "Coverage gate crashed",
+      [
+        `The coverage gate threw before reaching a verdict: ${err && err.message ? err.message : String(err)}`,
+        "",
+        "This is a defect in tdd-guardian, not in your tests. Nothing was verified, so nothing is being reported as passing.",
+        err && err.stack ? "" : null,
+        err && err.stack ? err.stack : null,
+      ]
+        .filter((line) => line !== null)
+        .join("\n")
+    );
+    return;
+  }
   log.push(coverageGate.message);
   if (coverageGate.record) state.coverage = coverageGate.record;
   if (coverageGate.newBaseline) state.baseline = coverageGate.newBaseline;

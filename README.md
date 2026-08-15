@@ -2,7 +2,7 @@
 
 [![Validated by NLPM](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/xiaolai/tdd-guardian-for-claude/main/nlpm-badge.json)](https://github.com/xiaolai/tdd-guardian-for-claude/blob/main/nlpm-badge.json)
 [![nlpm score 100/100](https://img.shields.io/badge/nlpm%20score-100%2F100-success)](https://github.com/xiaolai/tdd-guardian-for-claude/blob/main/nlpm-score.json)
-[![tests 292](https://img.shields.io/badge/tests-292%20passing-success)](https://github.com/xiaolai/tdd-guardian-for-claude/tree/main/tests)
+[![tests 302](https://img.shields.io/badge/tests-302%20passing-success)](https://github.com/xiaolai/tdd-guardian-for-claude/tree/main/tests)
 
 TDD Guardian for Claude Code — enforces strict test-driven development discipline with automated quality gates across **unit, integration, e2e, and contract test lanes**.
 
@@ -361,7 +361,7 @@ The plugin's own JavaScript is tested with Node's built-in runner — no depende
 node --test
 ```
 
-292 tests cover every coverage format, config migration and validation, critical-path evaluation and glob matching, lane selection and freshness, exit-code classification, red-receipt classification and verification, the receipt CLI, and both hooks driven end to end through stdin.
+302 tests cover every coverage format, config migration and validation, critical-path evaluation and glob matching, lane selection and freshness, exit-code classification, red-receipt classification and verification, the receipt CLI, and both hooks driven end to end through stdin.
 
 ## License
 
