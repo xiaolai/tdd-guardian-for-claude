@@ -110,6 +110,32 @@ Coverage Ignore Audit:
 Fix: replace with /* v8 ignore start */ / /* v8 ignore stop */ range comments
 ```
 
+### Gate 4: Critical-path thresholds
+
+A repo-wide threshold is one number for code with wildly different consequences of failure. `criticalPaths` adds a second, stricter bar scoped by glob — see the value heuristic in `policy-core`.
+
+Evaluated from the merged report's **per-file** entries, so it works across every format the plugin reads.
+
+| Situation | Result |
+|-----------|--------|
+| Matched files meet the entry's thresholds | PASS |
+| Matched files fall below | **FAIL**, naming the glob, the metric, and the shortfall |
+| Entry omits `thresholds` | Inherits `coverageThresholds` |
+| Glob matches zero files | **FAIL**, naming the glob. Unlike a lane in bootstrap there is no legitimate steady state: either the glob is wrong, or the named code has no measured coverage. Both are what the entry exists to catch |
+| Merged report has no per-file data | **FAIL** — a configured strict rule that cannot be evaluated must not report success |
+| A metric the format does not measure | WARNING, never FAIL — `null` is not zero |
+| The merge was weighted rather than a union | Every critical-path percentage is flagged **APPROXIMATE** — a shared file is counted once per lane |
+| A threshold is set on a dimension the merge could not compute exactly | **FAIL**. Functions and branches have no per-item identity across reports, so a multi-lane merge keeps the strongest lane — which can report 1/1 = 100% for a file with 100 functions. Emit one authoritative report for those files, or set that threshold to 0 on the entry |
+
+Critical paths are absolute bars in **both** coverage modes. Under `no-decrease` the repo-wide comparison is against a moving baseline, but a critical path holds its fixed number regardless — and a failing critical path does not bank a new baseline, which would freeze the failure in as the new normal.
+
+```
+Critical Paths:
+✗ src/payments/**  (7 files)  lines: 98.21% < 100.00% (110/112)
+✓ src/auth/**      (4 files)  lines=100.00%, branches=100.00%
+✗ src/paymnets/**  matched no file — check the glob against your reporter's paths
+```
+
 ### How to fix wiring-only tests
 
 | Current assertion | Add this | Example |
@@ -120,7 +146,7 @@ Fix: replace with /* v8 ignore start */ / /* v8 ignore stop */ range comments
 
 ## Scope
 
-Covers threshold enforcement: coverage modes, multi-lane merging, null-metric handling, the test-quality scan, and the coverage-ignore directive audit.
+Covers threshold enforcement: coverage modes, multi-lane merging, null-metric handling, critical-path thresholds, the test-quality scan, and the coverage-ignore directive audit.
 
 Does NOT cover:
 
@@ -130,3 +156,4 @@ Does NOT cover:
 | Which lanes contribute coverage, and why? | `tdd-guardian:lane-policy` |
 | What coverage tool does language X use? | `tdd-guardian:tooling-catalog` |
 | How is test strength measured beyond coverage? | `tdd-guardian:mutation-gate` |
+| How strong is the claim a test makes? | `tdd-guardian:policy-core` (S1-S6) |

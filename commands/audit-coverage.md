@@ -69,7 +69,8 @@ Use the `Task` tool to invoke `tdd-coverage-auditor` with:
 - The parsed totals + per-file data.
 - The configured thresholds.
 - The optional scope hint from `$ARGUMENTS`.
-- A directive: "Use the `tdd-guardian:coverage-gate` skill. Compare totals against thresholds per `coverageMode`. List uncovered branches and functions. Propose concrete tests with assertion levels from `tdd-guardian:policy-core`. Run the coverage-ignore directive audit — flag any `/* v8 ignore next */` or `/* v8 ignore next N */`."
+- The configured `criticalPaths`, and the per-file subtotals for each glob.
+- A directive: "Use the `tdd-guardian:coverage-gate` skill. Compare totals against thresholds per `coverageMode`, then evaluate every `criticalPaths` entry against its own bar — critical paths are absolute in both coverage modes. List uncovered branches and functions. Propose concrete tests with assertion levels (Level 1-5) and specification levels (S1-S6) from `tdd-guardian:policy-core`; where a unit has a law, propose the property that covers it rather than more examples. Run the coverage-ignore directive audit — flag any `/* v8 ignore next */` or `/* v8 ignore next N */`. A glob matching zero files FAILS, naming the glob — never let a rule enforcing nothing read as enforced. So does a threshold on a dimension the merge could not compute exactly."
 
 ### Step 5 — Persist result
 
@@ -110,6 +111,20 @@ Write the auditor's report to `.claude/tdd-guardian/coverage-{YYYYMMDD-HHMMSS}.m
 union, because {lane} emits {format}, which carries no per-line detail. Lines
 covered by more than one lane are counted more than once. Emit LCOV or Cobertura
 from that lane for an exact merge."}
+
+## Critical paths
+
+| Glob | Files | Lines | Branches | Threshold | Status |
+|------|-------|-------|----------|-----------|--------|
+| `src/payments/**` | 7 | 98.21% | 94.00% | 100% | **FAIL** |
+| `src/paymnets/**` | 0 | — | — | 100% | **MATCHED NOTHING** |
+
+{Omit the table when no criticalPaths are configured. A zero-match glob renders as
+MATCHED NOTHING and **fails** — its threshold is enforcing nothing, and a green
+row would say the opposite. A threshold on a dimension the merge could not compute
+exactly also fails, naming the dimension. The overall verdict is FAIL if any
+critical path fails, even when the project totals pass; that difference is the
+entire reason the feature exists.}
 
 {full auditor output follows}
 ```

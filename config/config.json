@@ -26,6 +26,7 @@
     "branches": 100,
     "statements": 100
   },
+  "criticalPaths": [],
   "coverageMode": "absolute",
   "requireMutation": false,
   "mutationCommand": "",

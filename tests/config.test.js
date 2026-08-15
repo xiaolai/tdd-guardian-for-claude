@@ -273,3 +273,88 @@ test("isBypassed honours the configured env var and its truthy spellings", () =>
   assert.equal(config.isBypassed(cfg), false);
   delete process.env.TDD_TEST_BYPASS;
 });
+
+// ---------------------------------------------------------------------------
+// Critical paths — how expensive the code is to get WRONG
+// ---------------------------------------------------------------------------
+
+function withCriticalPaths(criticalPaths, extra = {}) {
+  return config.validate({
+    lanes: [{ name: "unit", command: "npm test" }],
+    criticalPaths,
+    ...extra,
+  });
+}
+
+test("a criticalPaths entry normalizes with inherited thresholds", () => {
+  const { config: cfg, errors } = withCriticalPaths([{ glob: "src/payments/**", description: "money" }]);
+  assert.deepEqual(errors, []);
+  assert.equal(cfg.criticalPaths.length, 1);
+  assert.equal(cfg.criticalPaths[0].glob, "src/payments/**");
+  assert.equal(cfg.criticalPaths[0].thresholds, null, "omitted thresholds must stay distinguishable from explicit ones");
+  assert.equal(cfg.criticalPaths[0].requireSpecLevel, "");
+});
+
+test("criticalPaths defaults to empty, so existing configs are unaffected", () => {
+  const { config: cfg } = config.validate({ lanes: [{ name: "unit", command: "npm test" }] });
+  assert.deepEqual(cfg.criticalPaths, []);
+});
+
+test("a criticalPaths entry without a glob is an error", () => {
+  const { errors } = withCriticalPaths([{ thresholds: { lines: 100 } }]);
+  assert.ok(errors.some((e) => /criticalPaths\[0\]: missing required field 'glob'/.test(e)));
+});
+
+test("brace expansion is rejected rather than silently matching nothing", () => {
+  const { errors } = withCriticalPaths([{ glob: "src/{a,b}/**" }]);
+  assert.ok(errors.some((e) => /brace expansion is not supported/.test(e)));
+});
+
+test("an out-of-range critical threshold is an error", () => {
+  const { errors } = withCriticalPaths([{ glob: "src/**", thresholds: { lines: 140 } }]);
+  assert.ok(errors.some((e) => /thresholds\.lines must be a JSON number in \[0, 100\]/.test(e)));
+});
+
+test("an unknown threshold key is an error, not a silently ignored field", () => {
+  const { errors } = withCriticalPaths([{ glob: "src/**", thresholds: { lnies: 90 } }]);
+  assert.ok(errors.some((e) => /unknown threshold 'lnies'/.test(e)));
+});
+
+test("duplicate globs are an error, because the later entry would shadow the earlier", () => {
+  const { errors } = withCriticalPaths([{ glob: "src/**" }, { glob: "src/**" }]);
+  assert.ok(errors.some((e) => /Duplicate criticalPaths glob/.test(e)));
+});
+
+test("a critical path looser than the repo-wide bar warns", () => {
+  const { config: cfg, warnings } = withCriticalPaths([{ glob: "src/**", thresholds: { lines: 50 } }], {
+    coverageThresholds: { lines: 90, functions: 90, branches: 90, statements: 90 },
+  });
+  assert.ok(cfg, "a loose critical path is a warning, not an error");
+  assert.ok(warnings.some((w) => /LOOSER than the repo-wide threshold/.test(w)));
+});
+
+test("requireSpecLevel accepts S1-S6 and rejects anything else", () => {
+  const ok = withCriticalPaths([{ glob: "src/**", requireSpecLevel: "s4" }]);
+  assert.deepEqual(ok.errors, []);
+  assert.equal(ok.config.criticalPaths[0].requireSpecLevel, "S4", "spec levels normalize to upper case");
+
+  const bad = withCriticalPaths([{ glob: "src/**", requireSpecLevel: "S9" }]);
+  assert.ok(bad.errors.some((e) => /requireSpecLevel must be one of/.test(e)));
+});
+
+test("requireMutation without a mutation command is an unmeetable requirement, so it errors", () => {
+  const { errors } = withCriticalPaths([{ glob: "src/**", requireMutation: true }]);
+  assert.ok(errors.some((e) => /requireMutation but mutationCommand is empty/.test(e)));
+});
+
+test("requireMutation is accepted once a mutation command exists", () => {
+  const { errors } = withCriticalPaths([{ glob: "src/**", requireMutation: true }], {
+    mutationCommand: "npx stryker run",
+  });
+  assert.deepEqual(errors, []);
+});
+
+test("critical paths under no-decrease mode warn that the two bars are independent", () => {
+  const { warnings } = withCriticalPaths([{ glob: "src/**" }], { coverageMode: "no-decrease" });
+  assert.ok(warnings.some((w) => /coverageMode is "no-decrease"/.test(w)));
+});

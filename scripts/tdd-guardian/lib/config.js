@@ -41,6 +41,11 @@ const COVERAGE_PARTICIPATION = ["include", "none"];
 const COVERAGE_MODES = ["absolute", "no-decrease"];
 const STALE_ACTIONS = ["deny", "warn"];
 
+// Specification strength, from `policy-core`. S1 is a single example; S6 is a
+// metamorphic relation. Used by criticalPaths to demand that the code most
+// expensive to get wrong is specified by more than examples.
+const SPEC_LEVELS = ["S1", "S2", "S3", "S4", "S5", "S6"];
+
 const DEFAULT_THRESHOLDS = { lines: 100, functions: 100, branches: 100, statements: 100 };
 const DEFAULT_LANE_TIMEOUT_MS = 600000;
 const LANE_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
@@ -56,6 +61,7 @@ const DEFAULTS = {
   preflightCommand: "",
   lanes: [],
   coverageThresholds: { ...DEFAULT_THRESHOLDS },
+  criticalPaths: [],
   coverageMode: "absolute",
   smartStaleness: true,
   requireMutation: false,
@@ -134,6 +140,80 @@ function normalizeLane(raw, index) {
   lane.optional = raw?.optional === true;
 
   return { lane, errors };
+}
+
+/**
+ * Normalize one criticalPaths entry.
+ *
+ * A lane says how expensive a test is to RUN. A critical path says how expensive
+ * the code is to get WRONG — the axis a single repo-wide threshold cannot express.
+ * Without it the only honest settings are "strict everywhere", which no large repo
+ * adopts, and "lax everywhere", which verifies the payment code as loosely as the
+ * logging helper.
+ */
+function normalizeCriticalPath(raw, index) {
+  const errors = [];
+  const entry = {};
+
+  entry.glob = String(raw?.glob || "").trim();
+  if (!entry.glob) {
+    errors.push(`criticalPaths[${index}]: missing required field 'glob'.`);
+  } else if (entry.glob.includes("{")) {
+    // Brace expansion is not implemented. Silently failing to match would apply a
+    // strict rule to nothing while reporting success, so it is rejected instead.
+    errors.push(
+      `criticalPaths[${index}] ('${entry.glob}'): brace expansion is not supported. ` +
+        `Write one entry per alternative — "src/a/**" and "src/b/**" — rather than "src/{a,b}/**".`
+    );
+  }
+
+  entry.description = String(raw?.description || "").trim();
+
+  // Omitted thresholds inherit the global ones at evaluation time; recording null
+  // keeps "inherit" distinguishable from "explicitly the same number".
+  //
+  // Type checks are strict on purpose. `Number("")`, `Number(null)`, and
+  // `Number(false)` are all 0, so a loose check turns a typo into a threshold of
+  // zero — a bar that can never fail, silently, on exactly the paths the user
+  // marked as most expensive to get wrong.
+  if (raw?.thresholds === undefined || raw?.thresholds === null) {
+    entry.thresholds = null;
+  } else if (typeof raw.thresholds !== "object" || Array.isArray(raw.thresholds)) {
+    errors.push(
+      `criticalPaths[${index}] ('${entry.glob || index}'): thresholds must be an object like ` +
+        `{ "lines": 100, "branches": 100 } — got ${Array.isArray(raw.thresholds) ? "an array" : typeof raw.thresholds}.`
+    );
+    entry.thresholds = null;
+  } else {
+    const thresholds = {};
+    for (const [key, value] of Object.entries(raw.thresholds)) {
+      if (!["lines", "functions", "branches", "statements"].includes(key)) {
+        errors.push(`criticalPaths[${index}] ('${entry.glob || index}'): unknown threshold '${key}'. Valid: lines, functions, branches, statements.`);
+        continue;
+      }
+      if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 100) {
+        errors.push(
+          `criticalPaths[${index}] ('${entry.glob || index}'): thresholds.${key} must be a JSON number in [0, 100] — got ` +
+            `${typeof value === "string" ? `the string '${value}'` : String(value)}.`
+        );
+        continue;
+      }
+      thresholds[key] = value;
+    }
+    entry.thresholds = thresholds;
+  }
+
+  entry.requireMutation = raw?.requireMutation === true;
+
+  const specLevel = String(raw?.requireSpecLevel || "").trim().toUpperCase();
+  if (specLevel && !SPEC_LEVELS.includes(specLevel)) {
+    errors.push(
+      `criticalPaths[${index}] ('${entry.glob || index}'): requireSpecLevel must be one of ${SPEC_LEVELS.join(", ")} — got '${raw.requireSpecLevel}'.`
+    );
+  }
+  entry.requireSpecLevel = SPEC_LEVELS.includes(specLevel) ? specLevel : "";
+
+  return { entry, errors };
 }
 
 /**
@@ -257,6 +337,63 @@ function validate(rawInput) {
     );
   }
 
+  // Critical paths
+  //
+  // A present-but-wrong-shaped value is an ERROR, not a silent []. Coercing
+  // `"criticalPaths": { "glob": "src/**" }` to an empty array disables the whole
+  // policy while the config still reads as though it is enforced — the exact
+  // silent-no-op class this plugin exists to catch.
+  const criticalPaths = [];
+  if (config.criticalPaths !== undefined && !Array.isArray(config.criticalPaths)) {
+    errors.push(
+      `criticalPaths must be an array of entries — got ${typeof config.criticalPaths}. ` +
+        `Write [{ "glob": "src/payments/**", ... }], not a single object.`
+    );
+  }
+  const rawCriticalPaths = Array.isArray(config.criticalPaths) ? config.criticalPaths : [];
+  const seenGlobs = new Set();
+
+  rawCriticalPaths.forEach((raw, index) => {
+    const { entry, errors: entryErrors } = normalizeCriticalPath(raw, index);
+    errors.push(...entryErrors);
+
+    if (entry.glob) {
+      if (seenGlobs.has(entry.glob)) {
+        errors.push(`Duplicate criticalPaths glob '${entry.glob}'. The later entry would silently shadow the earlier one.`);
+      }
+      seenGlobs.add(entry.glob);
+    }
+
+    // A "critical" path held to a looser bar than the rest of the repo is
+    // incoherent — almost always a copied block that was never tightened.
+    for (const [key, value] of Object.entries(entry.thresholds || {})) {
+      const global = Number(config.coverageThresholds[key]);
+      if (Number.isFinite(global) && value < global) {
+        warnings.push(
+          `criticalPaths['${entry.glob}'].thresholds.${key} (${value}%) is LOOSER than the repo-wide threshold (${global}%). ` +
+            `A critical path should tighten the gate, not loosen it. Raise it, or drop the override to inherit ${global}%.`
+        );
+      }
+    }
+
+    criticalPaths.push(entry);
+  });
+  config.criticalPaths = criticalPaths;
+
+  if (criticalPaths.length && String(config.coverageMode) === "no-decrease") {
+    warnings.push(
+      `criticalPaths are configured but coverageMode is "no-decrease", which compares against a moving baseline rather than a fixed bar. ` +
+        `Critical-path thresholds are still evaluated as absolute numbers; the two modes are deliberately independent.`
+    );
+  }
+
+  if (criticalPaths.some((p) => p.requireMutation) && !String(config.mutationCommand || "").trim()) {
+    errors.push(
+      `A criticalPaths entry sets requireMutation but mutationCommand is empty. ` +
+        `Set mutationCommand, or drop requireMutation — a mutation requirement with no mutation tool can never be met.`
+    );
+  }
+
   // Mutation triggers
   const mutationTriggers = [];
   const rawMutationTriggers = Array.isArray(config.mutationGateOn) ? config.mutationGateOn : DEFAULTS.mutationGateOn;
@@ -373,6 +510,7 @@ module.exports = {
   TRIGGERS,
   COVERAGE_PARTICIPATION,
   COVERAGE_MODES,
+  SPEC_LEVELS,
   DEFAULT_THRESHOLDS,
   DEFAULT_LANE_TIMEOUT_MS,
   DEFAULTS,

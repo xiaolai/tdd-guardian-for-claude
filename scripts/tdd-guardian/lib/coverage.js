@@ -717,11 +717,21 @@ function parseFile(filePath, cwd) {
  *
  * @returns {{totals, method: "single"|"union"|"weighted", formats: string[], approximate: boolean}}
  */
-function mergeReports(reports) {
+function mergeReports(reports, cwd) {
   const valid = reports.filter(Boolean);
-  if (valid.length === 0) return { totals: emptyTotals(), method: "single", formats: [], approximate: false, files: [] };
+  const NO_APPROX = { lines: false, functions: false, branches: false, statements: false };
+  if (valid.length === 0) {
+    return { totals: emptyTotals(), method: "single", formats: [], approximate: false, approximateMetrics: { ...NO_APPROX }, files: [] };
+  }
   if (valid.length === 1) {
-    return { totals: valid[0].totals, method: "single", formats: [valid[0].format], approximate: false, files: valid[0].files };
+    return {
+      totals: valid[0].totals,
+      method: "single",
+      formats: [valid[0].format],
+      approximate: false,
+      approximateMetrics: { ...NO_APPROX },
+      files: valid[0].files,
+    };
   }
 
   const formats = valid.map((r) => r.format);
@@ -733,7 +743,7 @@ function mergeReports(reports) {
     for (const report of valid) {
       for (const file of report.files) {
         if (!file.lineHits) continue;
-        const key = normalizePath(file.path);
+        const key = normalizePath(file.path, cwd);
         if (!byPath.has(key)) byPath.set(key, { path: file.path, lineHits: {}, functions: null, branches: null });
         const entry = byPath.get(key);
         for (const [line, hits] of Object.entries(file.lineHits)) {
@@ -761,7 +771,18 @@ function mergeReports(reports) {
       });
     }
 
-    return { totals: totalsFromFiles(files), method: "union", formats, approximate: false, files };
+    return {
+      totals: totalsFromFiles(files),
+      method: "union",
+      formats,
+      approximate: false,
+      // Lines and statements are a true union. Functions and branches are the
+      // strongest single lane (see maxMetric) because those items have no
+      // identity across formats — exact for line coverage, a maximum for the
+      // other two, and callers must be able to tell which is which.
+      approximateMetrics: { lines: false, statements: false, functions: true, branches: true },
+      files,
+    };
   }
 
   let totals = emptyTotals();
@@ -770,7 +791,14 @@ function mergeReports(reports) {
       totals[key] = sumMetrics(totals[key], report.totals[key]);
     }
   }
-  return { totals, method: "weighted", formats, approximate: true, files: valid.flatMap((r) => r.files) };
+  return {
+    totals,
+    method: "weighted",
+    formats,
+    approximate: true,
+    approximateMetrics: { lines: true, functions: true, branches: true, statements: true },
+    files: valid.flatMap((r) => r.files),
+  };
 }
 
 function maxMetric(a, b) {
@@ -779,8 +807,26 @@ function maxMetric(a, b) {
   return a.pct >= b.pct ? { ...a } : { ...b };
 }
 
-function normalizePath(p) {
-  return String(p || "").replace(/\\/g, "/").replace(/^\.\//, "").toLowerCase();
+/**
+ * Key a file path for cross-lane identity.
+ *
+ * Reports disagree about roots: istanbul-final emits absolute paths, coverage.py
+ * relative ones. Without stripping the workspace prefix, `/repo/src/a.js` and
+ * `src/a.js` key differently, so the same file is counted twice in a merge that
+ * still reports itself as an exact union — complementary 50% lanes that should
+ * union to 100% come out as 50%.
+ *
+ * Case is folded because the merge asks "are these the same file on disk", and on
+ * macOS and Windows they are. Glob matching deliberately does NOT fold case; that
+ * asks a different question. See compileGlob.
+ */
+function normalizePath(p, cwd) {
+  let clean = String(p || "").replace(/\\/g, "/").replace(/^\.\//, "");
+  const root = String(cwd || "").replace(/\\/g, "/").replace(/\/+$/, "");
+  if (root && clean.toLowerCase().startsWith(root.toLowerCase() + "/")) {
+    clean = clean.slice(root.length + 1);
+  }
+  return clean.toLowerCase();
 }
 
 /**
@@ -818,6 +864,246 @@ function compareToThresholds(totals, thresholds) {
   }
 
   return { ok: failures.length === 0, failures, warnings, summary: parts.join(", ") };
+}
+
+// ---------------------------------------------------------------------------
+// Critical paths
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Glob matching
+//
+// Deliberately NOT regex-based. Compiling `**` to `.*` produces chained
+// quantifiers, and a pattern like `**a**a**a**b` then backtracks
+// catastrophically: measured at 1.27s for twelve fragments and over 11s at a
+// 50-character subject. This matcher runs inside the TaskCompleted hook on every
+// file in the coverage report, so a stall there freezes the editor. The
+// segment-DP below is O(pattern x path) with no backtracking at all, which
+// removes the class rather than capping it.
+// ---------------------------------------------------------------------------
+
+function splitPathSegments(value) {
+  return String(value || "")
+    .replace(/\\/g, "/")
+    .split("/")
+    .filter((segment) => segment !== "" && segment !== ".");
+}
+
+/**
+ * Match one path segment against a segment pattern containing `*` and `?`.
+ *
+ * Two-pointer wildcard matching with a single star rollback: O(pattern x text)
+ * worst case, linear in practice, and — unlike a regex — it cannot blow up.
+ */
+function matchSegment(pattern, text) {
+  let p = 0;
+  let s = 0;
+  let star = -1;
+  let mark = 0;
+
+  while (s < text.length) {
+    if (p < pattern.length && (pattern[p] === "?" || pattern[p] === text[s])) {
+      p++;
+      s++;
+    } else if (p < pattern.length && pattern[p] === "*") {
+      star = p++;
+      mark = s;
+    } else if (star >= 0) {
+      p = star + 1;
+      s = ++mark;
+    } else {
+      return false;
+    }
+  }
+
+  while (p < pattern.length && pattern[p] === "*") p++;
+  return p === pattern.length;
+}
+
+/**
+ * Compile a glob into the segment list the matcher walks.
+ *
+ * A leading `**` is implicit: the pattern is anchored at the END and may start at
+ * any segment boundary, so `src/payments/**` matches both `src/payments/charge.ts`
+ * and the absolute `/home/u/proj/src/payments/charge.ts` that several report
+ * formats emit. The cost is that a nested `vendor/src/payments/...` also matches;
+ * that is the documented trade for working across nine formats' path conventions.
+ *
+ * Matching is case-SENSITIVE. Folding case would make `src/Auth/**` silently also
+ * cover `src/auth/**` on a case-sensitive filesystem, quietly averaging an
+ * unrelated well-covered directory into a critical path's score. A glob whose case
+ * is wrong now reports "matched nothing", which is loud and true.
+ */
+function compileGlob(glob) {
+  const segments = splitPathSegments(String(glob || "").replace(/^\.\//, ""));
+  // An empty glob matches NOTHING, not everything. Config validation already
+  // rejects one, but this function is exported: failing open here would silently
+  // apply a critical path's strict threshold to every file in the report.
+  if (segments.length === 0) return null;
+  return ["**", ...segments];
+}
+
+/** Match a path's segments against a compiled glob. O(pattern x path), no backtracking. */
+function matchCompiledGlob(compiled, filePath) {
+  if (!compiled) return false;
+  const segments = splitPathSegments(String(filePath || "").replace(/^\.\//, ""));
+  const width = segments.length;
+
+  let reachable = new Array(width + 1).fill(false);
+  reachable[0] = true;
+
+  for (const patternSegment of compiled) {
+    const next = new Array(width + 1).fill(false);
+    if (patternSegment === "**") {
+      // Consumes any number of segments, including none.
+      let carry = false;
+      for (let j = 0; j <= width; j++) {
+        carry = carry || reachable[j];
+        next[j] = carry;
+      }
+    } else {
+      for (let j = 1; j <= width; j++) {
+        if (reachable[j - 1] && matchSegment(patternSegment, segments[j - 1])) next[j] = true;
+      }
+    }
+    reachable = next;
+  }
+
+  return reachable[width];
+}
+
+function matchesGlob(filePath, glob) {
+  return matchCompiledGlob(compileGlob(glob), filePath);
+}
+
+/**
+ * Evaluate per-path coverage requirements against a merged report.
+ *
+ * Fails closed in two directions that would otherwise pass silently:
+ *
+ *   * No per-file data at all → FAILURE. A configured strict rule that cannot be
+ *     evaluated must not report success; that is a "green means nothing happened"
+ *     defect of exactly the kind this plugin exists to catch.
+ *   * A glob matching zero files → WARNING naming the glob, because a typo'd path
+ *     applies its strict threshold to nothing while looking enforced.
+ *
+ * A null metric stays a warning, never a failure — the format does not measure
+ * that dimension, which is not the same as measuring zero.
+ *
+ * @returns {{ok: boolean, failures: string[], warnings: string[], results: object[]}}
+ */
+function evaluateCriticalPaths(merged, criticalPaths, globalThresholds) {
+  const paths = Array.isArray(criticalPaths) ? criticalPaths : [];
+  if (paths.length === 0) return { ok: true, failures: [], warnings: [], results: [] };
+
+  const files = Array.isArray(merged?.files) ? merged.files : [];
+  if (files.length === 0) {
+    return {
+      ok: false,
+      failures: [
+        `criticalPaths are configured but the merged coverage report carries no per-file data ` +
+          `(formats: ${(merged?.formats || []).join(", ") || "none"}), so no per-path threshold could be evaluated. ` +
+          `Emit a format with per-file entries — LCOV, Cobertura, JaCoCo, coverage.py JSON, or coverage-final.json — or remove criticalPaths.`,
+      ],
+      warnings: [],
+      results: [],
+    };
+  }
+
+  const failures = [];
+  const warnings = [];
+  const results = [];
+
+  // Under a weighted merge the per-file list holds one entry per lane per file,
+  // so a path exercised by two lanes is counted twice here exactly as it is in
+  // the project total. The number is usable but approximate, and every invariant
+  // in this file says an approximate number must say so rather than be quoted
+  // like an exact one.
+  const approximate = merged?.approximate === true;
+  if (approximate) {
+    warnings.push(
+      `Critical-path percentages are APPROXIMATE: the merge was a weighted average (${(merged.formats || []).join(", ")}), ` +
+        `so a file covered by more than one lane is counted once per lane. Emit LCOV or Cobertura from every contributing lane for exact per-path numbers.`
+    );
+  }
+
+  // Even a union merge is exact only for lines and statements. Functions and
+  // branches have no per-item identity across formats, so mergeReports keeps the
+  // strongest single lane for them — a maximum, not a union. Enforcing a critical
+  // threshold on that number while calling it exact is the same defect as quoting
+  // a weighted average as a union.
+  const approximateMetrics = merged?.approximateMetrics || {};
+  const inexact = ["lines", "functions", "branches", "statements"].filter((key) => approximateMetrics[key]);
+  if (inexact.length && !approximate) {
+    warnings.push(
+      `Critical-path ${inexact.join(" and ")} coverage is APPROXIMATE: more than one lane contributed and these dimensions ` +
+        `carry no per-item identity across reports, so the strongest single lane is used rather than a union. ` +
+        `Threshold a single authoritative report for exact ${inexact.join("/")} numbers.`
+    );
+  }
+
+  for (const entry of paths) {
+    // Compiled once per entry, not once per file — matching is O(pattern x path)
+    // and the report can hold thousands of files.
+    const compiled = compileGlob(entry.glob);
+    const matched = files.filter((file) => matchCompiledGlob(compiled, file.path));
+    const thresholds = { ...(globalThresholds || {}), ...(entry.thresholds || {}) };
+
+    if (matched.length === 0) {
+      // Unlike a lane in bootstrap, there is no legitimate steady state where a
+      // critical path matches nothing: either the glob is wrong, or the code it
+      // names has no measured coverage at all. Both are exactly what this feature
+      // was configured to catch, so both fail rather than warn.
+      failures.push(
+        `${entry.glob}: matched no file in the coverage report, so its thresholds enforced nothing. ` +
+          `Fix the glob to match the paths your reporter emits, or remove the entry — a rule that enforces nothing must not read as enforced.`
+      );
+      results.push({ glob: entry.glob, matchedFiles: 0, totals: null, ok: false, thresholds, approximate });
+      continue;
+    }
+
+    const totals = totalsFromFiles(matched);
+
+    // Refuse to enforce a bar on a dimension the merge could not compute exactly.
+    // With lanes instrumenting different function sets, maxMetric can report
+    // 1/1 = 100% for a file with 100 functions — a pass the true union would fail,
+    // on the code the user marked as most expensive to get wrong.
+    const enforceable = {};
+    for (const [key, value] of Object.entries(thresholds)) {
+      if (Number(value) > 0 && approximateMetrics[key]) {
+        failures.push(
+          `${entry.glob}: ${key} cannot be enforced exactly — ${(merged.formats || []).join(" + ")} were combined, and ${key} has no ` +
+            `per-item identity across reports, so the reported figure can exceed the true union. ` +
+            `Emit one authoritative report for these files, or set the ${key} threshold to 0 on this entry.`
+        );
+        continue;
+      }
+      enforceable[key] = value;
+    }
+
+    const cmp = compareToThresholds(totals, enforceable);
+
+    for (const failure of cmp.failures) {
+      failures.push(`${entry.glob} (${matched.length} file(s)): ${failure}`);
+    }
+    for (const warning of cmp.warnings) {
+      warnings.push(`${entry.glob}: ${warning}`);
+    }
+
+    results.push({
+      glob: entry.glob,
+      description: entry.description || "",
+      matchedFiles: matched.length,
+      totals: totalsToPercentages(totals),
+      thresholds,
+      ok: cmp.ok && !Object.keys(thresholds).some((k) => Number(thresholds[k]) > 0 && approximateMetrics[k]),
+      summary: cmp.summary,
+      approximate,
+      approximateMetrics: { ...approximateMetrics },
+    });
+  }
+
+  return { ok: failures.length === 0, failures, warnings, results };
 }
 
 /**
@@ -867,6 +1153,10 @@ module.exports = {
   mergeReports,
   compareToThresholds,
   compareToBaseline,
+  evaluateCriticalPaths,
+  matchesGlob,
+  compileGlob,
+  matchCompiledGlob,
   totalsToPercentages,
   totalsFromFiles,
   isEmpty,
