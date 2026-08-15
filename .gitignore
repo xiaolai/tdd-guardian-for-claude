@@ -1,1 +1,4 @@
 .DS_Store
+
+# Audit-run scratch from cc-suite; the durable decisions live in CLAUDE.md
+.cc-suite/

@@ -2,7 +2,7 @@
 
 [![Validated by NLPM](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/xiaolai/tdd-guardian-for-claude/main/nlpm-badge.json)](https://github.com/xiaolai/tdd-guardian-for-claude/blob/main/nlpm-badge.json)
 [![nlpm score 100/100](https://img.shields.io/badge/nlpm%20score-100%2F100-success)](https://github.com/xiaolai/tdd-guardian-for-claude/blob/main/nlpm-score.json)
-[![tests 162](https://img.shields.io/badge/tests-162%20passing-success)](https://github.com/xiaolai/tdd-guardian-for-claude/tree/main/tests)
+[![tests 292](https://img.shields.io/badge/tests-292%20passing-success)](https://github.com/xiaolai/tdd-guardian-for-claude/tree/main/tests)
 
 TDD Guardian for Claude Code — enforces strict test-driven development discipline with automated quality gates across **unit, integration, e2e, and contract test lanes**.
 
@@ -13,6 +13,10 @@ TDD Guardian for Claude Code — enforces strict test-driven development discipl
 - **Coverage gates** — 9 report formats parsed and merged, with an exact per-line union when the formats allow it and an explicitly-flagged approximation when they do not.
 - **Mutation testing** — optional, per-trigger.
 - **Behavior-driven test quality** — rejects wiring-only tests that assert mock calls without verifying observable behavior.
+- **Specification strength** — a third axis beyond assertion level and lane: how much of the input space a test actually claims, S1 (one example) through S6 (metamorphic relation). A unit with a conservation law or a round-trip needs a property, not more examples.
+- **Adversarial specification review** — `tdd-spec-adversary` attacks the test matrix *before* any implementation exists, hunting for the simplest wrong implementation that would pass every case.
+- **Red receipts** — records that your tests failed for a real reason before the code existed, then checks that no assertion moved on the way to green. Opt-in evidence; its absence reports as unverified, never as a violation.
+- **Critical paths** — per-glob coverage thresholds and specification requirements, because one repo-wide number treats the payment core and the logging helper alike.
 - **Commit and push gating** — hooks check that every lane bound to the action has a fresh pass.
 - **Greenfield-aware** — a lane that has never had a test is in *bootstrap*: reported loudly on every run, but not blocking. The strict "zero tests is a failure" rule switches on permanently the moment that lane runs its first test.
 
@@ -59,6 +63,15 @@ Run `/tdd-guardian:init` inside your project. It detects your lanes, probes each
 | `/tdd-guardian:audit-coverage` | Run the coverage gate and list uncovered branches |
 | `/tdd-guardian:audit-mutation` | Run mutation testing and list surviving mutants |
 | `/tdd-guardian:review` | Final code + test quality review |
+
+The red-receipt CLI is not a slash command — `/tdd-guardian:implement` drives it:
+
+```bash
+node <plugin>/scripts/tdd-guardian/receipt.js record --id WI-1   # before the implementation
+node <plugin>/scripts/tdd-guardian/receipt.js verify --id WI-1   # after the implementation
+```
+
+`verify` re-runs the recorded lane itself and judges the receipt only if that lane is green. A receipt verified while the suite is still red stays `PENDING` rather than banking a verdict about a transition that has not happened.
 
 ## Lanes
 
@@ -108,16 +121,19 @@ A dimension the tool does not measure is `null`, not zero, and produces a warnin
 
 ### The TDD workflow (`/tdd-guardian:workflow`)
 
-Six specialized subagents in sequence:
+Seven specialized subagents in sequence:
 
 1. **tdd-planner** — work items with acceptance criteria
-2. **tdd-test-designer** — a test matrix with a lane and an assertion level per case
-3. **tdd-implementer** — small batches, verified against the fast `taskCompleted` lanes
-4. **tdd-coverage-auditor** — runs contributing lanes, merges, enforces thresholds
-5. **tdd-mutation-auditor** — mutation testing when enabled
-6. **tdd-reviewer** — findings-first review of code, test quality, and lane assignment
+2. **tdd-test-designer** — a test matrix with a lane, an assertion level, and a spec level per case
+3. **tdd-spec-adversary** — attacks that matrix before any code exists, looking for the wrong implementation that would pass every case
+4. **tdd-implementer** — small batches, verified against the fast `taskCompleted` lanes, with a red receipt per work item
+5. **tdd-coverage-auditor** — runs contributing lanes, merges, enforces thresholds and critical paths
+6. **tdd-mutation-auditor** — mutation testing when enabled
+7. **tdd-reviewer** — findings-first review of code, test quality, specification strength, and change tax
 
 The workflow stops at the first gate failure.
+
+The adversary is the only gate that runs *before* the implementation. Every other one reads code that already exists, by which point the specification has been shaped by knowing how the thing was built.
 
 ### Hook enforcement
 
@@ -128,7 +144,7 @@ Freshness uses `gateFreshnessMinutes`, and with `smartStaleness` an expired pass
 
 ### Test quality philosophy
 
-Two independent axes.
+Three independent axes.
 
 **How strongly does this test verify anything** — the assertion hierarchy:
 
@@ -149,6 +165,25 @@ Tests with only Level 6-7 assertions are flagged and must be upgraded.
 > If the test would still pass when the real collaborator is broken, it belongs one lane higher.
 
 Mocking a boundary creates an obligation: a named integration-lane test must cover the real path. The reviewer checks that the pairing exists.
+
+**How much of the input space does it claim** — the specification level:
+
+| Level | The claim |
+|-------|-----------|
+| S1 | Example — one input, one output |
+| S2 | Boundary / equivalence class |
+| S3 | Named failure mode |
+| S4 | Property over a generated domain |
+| S5 | Invariant across state transitions — conservation, round-trip, idempotence |
+| S6 | Metamorphic relation, where no oracle exists |
+
+`expect(add(2, 3)).toBe(5)` is a Level 1 assertion and an S1 claim: implementation-independent, and almost content-free. A unit **with a law** — a conserved quantity, a round-trip, an idempotent operation — needs an S4-S6 case covering it. A unit with no law records that fact rather than leaving the question unasked. Every language in the catalog names a property-testing library, because a level the catalog cannot equip is aspiration rather than policy.
+
+### What tests cost
+
+Every rule above pushes toward more verification. Pushed without a counterweight it produces a suite so coupled to structure that nobody dares refactor, so the reviewer also flags the symmetric pathology: refactors that edit dozens of existing assertions without changing behavior, interfaces with exactly one implementation and one test double, more mocks in a test than the unit has collaborators.
+
+What tests buy is not fewer bugs today — it is a lower marginal cost of future change. That is why a one-off script rationally gets none and a payment core rationally gets properties, mutation testing, and its own `criticalPaths` entry.
 
 ## Configuration
 
@@ -186,10 +221,18 @@ Mocking a boundary creates an obligation: a named integration-lane test must cov
     }
   ],
   "coverageThresholds": { "lines": 100, "functions": 100, "branches": 100, "statements": 100 },
+  "criticalPaths": [
+    {
+      "glob": "src/payments/**",
+      "description": "Money movement — a defect here is not recoverable by a redeploy.",
+      "thresholds": { "lines": 100, "functions": 100, "branches": 100, "statements": 100 },
+      "requireSpecLevel": "S5"
+    }
+  ],
   "coverageMode": "absolute",
   "requireMutation": false,
-  "mutationCommand": "",
-  "mutationGateOn": ["taskCompleted"]
+  "mutationCommand": "npx stryker run",
+  "mutationGateOn": ["push"]
 }
 ```
 
@@ -207,6 +250,7 @@ Mocking a boundary creates an obligation: a named integration-lane test must cov
 | `bypassEnv` | Env var to bypass all gates | `TDD_GUARD_BYPASS` |
 | `preflightCommand` | Runs once before any lane (e.g. a type check) | `""` |
 | `coverageThresholds` | Applied to the **merged** total | `100` for all |
+| `criticalPaths` | Per-glob thresholds and spec requirements | `[]` |
 | `coverageMode` | `"absolute"` or `"no-decrease"` | `"absolute"` |
 | `requireMutation` | Enable the mutation gate | `false` |
 | `mutationCommand` | Mutation test runner | `""` |
@@ -227,6 +271,30 @@ Mocking a boundary creates an obligation: a named integration-lane test must cov
 | `timeoutMs` | Lane timeout | `600000` |
 | `optional` | Record failures without blocking | `false` |
 
+### Critical-path settings
+
+A lane says how expensive a suite is to **run**. A critical path says how expensive the code is to get **wrong** — the axis a single repo-wide threshold cannot express.
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `glob` | Path pattern: `**`, `*`, `?`, with standard glob semantics — `**` is a whole segment and matches zero or more of them; `*` and `?` never cross `/`. Matches at any segment boundary, so it works against both absolute and relative report paths. **Case-sensitive**; matched by a segment walk, not a regex | required |
+| `description` | Why this path is critical | `""` |
+| `thresholds` | Overrides `coverageThresholds` for matched files | inherits |
+| `requireSpecLevel` | `S1`–`S6` from `policy-core` | `""` |
+| `requireMutation` | Demand a mutation run for this path | `false` |
+
+Fail-loud rules, all enforced:
+
+- A critical threshold **looser** than the repo-wide one warns — a critical path should tighten the gate, not loosen it.
+- Brace expansion (`src/{a,b}/**`) is **rejected**, not silently ignored. Write one entry per alternative.
+- An **empty** glob matches nothing rather than everything, and a `thresholds` value that is not a JSON number in `[0, 100]` is an error — `"100"`, `""`, `null`, and `false` are all rejected rather than quietly becoming 0.
+- Matching is **case-sensitive**. `src/Auth/**` does not also cover `src/auth/**`; on a case-sensitive filesystem that would average an unrelated directory into the score.
+- A glob matching **zero files** is a **failure**, not a warning. There is no legitimate steady state in which a critical path matches nothing — either the glob is wrong, or the code it names has no measured coverage, and both are the thing you configured it to find.
+- A threshold on a dimension the merge cannot compute exactly (functions and branches, once more than one lane contributes) is a **failure** rather than a number quoted with false confidence. Emit one authoritative report for those files, or set that threshold to 0.
+- A merged report with no per-file data **fails** rather than skipping — a strict rule that cannot be evaluated must not report success.
+- `requireMutation` without a `mutationCommand` is an error: a requirement that can never be met.
+- Critical paths are absolute bars in **both** coverage modes, and a failing one does not bank a new `no-decrease` baseline.
+
 ### Bypass
 
 ```bash
@@ -244,6 +312,12 @@ Two behaviour changes worth knowing:
 - **PreToolUse now denies rather than warns** when `blockCommitWithoutFreshGate` is `true`. The old behaviour always warned regardless, which contradicted the setting's name. Set `staleGateAction: "warn"` to keep warning.
 - **Coverage parsing now handles all 9 formats.** Previously only Istanbul JSON was parsed in the hook, so Go, Rust, and Python projects saw the gate fail with "coverage summary not found or invalid" despite a valid report.
 
+**From 0.8.x.** Nothing to do — `criticalPaths` defaults to `[]`, so existing configs validate and behave exactly as before. Three additions are opt-in:
+
+- Add a `criticalPaths` entry to hold your highest-consequence code to a stricter bar than the repo average.
+- Run `/tdd-guardian:implement` to start recording red receipts; without them the separation check reports `NOT-RECORDED`, which is honest rather than failing.
+- Re-run `/tdd-guardian:init` to be offered a mutation tool and critical-path candidates for your ecosystem.
+
 > **From 0.7.2:** command names lost their redundant prefix in 0.7.3. `/tdd-guardian:tdd-guardian-init` is now `/tdd-guardian:init`.
 
 ## Project structure
@@ -251,7 +325,7 @@ Two behaviour changes worth knowing:
 ```
 .claude-plugin/plugin.json     Plugin metadata
 hooks/hooks.json               Hook registration
-agents/                        Six TDD subagents
+agents/                        Seven TDD subagents
 commands/                      Slash commands (basename = command name)
   init, probe, gate, status, workflow, plan, design-tests,
   implement, audit-coverage, audit-mutation, review
@@ -263,6 +337,8 @@ scripts/tdd-guardian/
   lib/coverage.js              9-format parser + union/weighted merge
   lib/lanes.js                 Lane selection, execution, state, freshness
   lib/exec.js                  Run + classify (runner failure vs test failure)
+  lib/verification.js          Red receipts, spec fingerprints, separation check
+  receipt.js                   Red-receipt CLI (record / verify / show)
   pretool_guard.js             PreToolUse hook
   taskcompleted_gate.js        TaskCompleted hook
 skills/tdd-guardian/
@@ -285,7 +361,7 @@ The plugin's own JavaScript is tested with Node's built-in runner — no depende
 node --test
 ```
 
-162 tests cover every coverage format, config migration and validation, lane selection and freshness, exit-code classification, and both hooks driven end to end through stdin.
+292 tests cover every coverage format, config migration and validation, critical-path evaluation and glob matching, lane selection and freshness, exit-code classification, red-receipt classification and verification, the receipt CLI, and both hooks driven end to end through stdin.
 
 ## License
 

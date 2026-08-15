@@ -39,7 +39,7 @@ Map each distinct invocation to a lane name: `unit`, `integration`, `e2e`, `cont
 
 ### Step 2 — Confirm the runner from manifests and lockfiles
 
-Use the `tdd-guardian:tooling-catalog` skill. Read its `SKILL.md` index to pick the right reference file for the ecosystem you found, then read only that file. It carries, per language: manifest fingerprints, runner detection, coverage tool, coverage output format and path, mutation tool, and the probe command.
+Use the `tdd-guardian:tooling-catalog` skill. Read its `SKILL.md` index to pick the right reference file for the ecosystem you found, then read only that file. It carries, per language: manifest fingerprints, runner detection, coverage tool, coverage output format and path, mutation tool, property-testing library, and the probe command.
 
 Detect the package manager from the lockfile, never from a guess:
 
@@ -199,6 +199,18 @@ E2E lanes default to `coverage: "none"`. Browser-driven coverage requires an ins
 
 When more than one lane contributes coverage, prefer formats that carry per-line detail (LCOV, Cobertura, JaCoCo, coverage.py JSON, `coverage-final.json`) over summary-only formats (`coverage-summary.json`). Only per-line data can be merged as a true union; summary-only reports fall back to a weighted average that double-counts lines exercised by more than one lane. The gate reports which method it used.
 
+## Detect what is NOT there
+
+Everything above finds tooling that exists. These three checks find dimensions the repo is not verifying at all — and an unnamed gap is the one failure mode no later gate can catch, because every gate reports only on checks that are switched on.
+
+| Check | How | Report as |
+|-------|-----|-----------|
+| **Mutation tool** | `tooling-catalog` names one per ecosystem; check the manifest and lockfile for it | `mutation.available` — and when absent, a gap with the install hint, not silence |
+| **Property library** | Grep the test tree for the ecosystem's library from the property-testing table in `tooling-catalog` (`fast-check`, `hypothesis`, `jqwik`, `proptest`, …) | `properties.detected` — absence is worth naming for a repo with conservation laws or round-trips |
+| **High-consequence directories** | Directory names matching payments, billing, auth, crypto, session, permission, migration — plus anything the CI config already treats specially | `criticalPathCandidates`, for the caller to propose |
+
+None of these is a failure. Report each as **unmeasured**, with the one-line consequence, so the caller can put it under Verification gaps rather than leaving a green board implying coverage it does not have.
+
 ## Return shape
 
 Return this to the caller:
@@ -211,12 +223,15 @@ Return this to the caller:
     setupCommand, teardownCommand, probeCommand, timeoutMs, description
   }],
   mutation: { command, available: boolean, installHint },
+  properties: { library, detected: boolean, installHint },
+  criticalPathCandidates: [{ glob, reason }],
   probeResults: [{ lane, status: "verified" | "empty" | "unresolved" | "unprobeable", detail, testCount }],
   evidence: [{ lane, source: "ci" | "manifest" | "topology" | "user", detail }],
   emptyReason: "greenfield" | "no-tests-yet" | "untested-legacy" | "deps-missing" | null,
   unmapped: ["<ecosystem or CI job found but not turned into a lane, with the reason>"],
-  notes: ["<install prerequisites the user must confirm>"]
+  notes: ["<install prerequisites the user must confirm>"],
+  gaps: ["<dimension not being verified, with its consequence>"]
 }
 ```
 
-`probeResults` and `evidence` are not optional. The caller shows the user which lanes were verified and which were inferred, so nothing is written to config under a false claim of verification.
+`probeResults`, `evidence`, and `gaps` are not optional. The first two show the user which lanes were verified and which were inferred, so nothing is written to config under a false claim of verification. The third shows what is not being verified at all — for the same reason.

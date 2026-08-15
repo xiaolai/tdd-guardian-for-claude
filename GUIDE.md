@@ -1,6 +1,6 @@
 # TDD Guardian — Guide
 
-TDD Guardian enforces strict test-driven development through six specialized agents, five shared partials, nine focused commands, a workflow orchestrator, and two gating hooks. This guide walks through a real-world session, explains the architecture, and answers common questions.
+TDD Guardian enforces strict test-driven development through seven specialized agents, five shared partials, nine focused commands, a workflow orchestrator, two gating hooks, and a red-receipt CLI. This guide walks through a real-world session, explains the architecture, and answers common questions.
 
 ## The pipeline at a glance
 
@@ -8,7 +8,9 @@ TDD Guardian enforces strict test-driven development through six specialized age
 flowchart LR
     User[User task description] --> Plan[/tdd-guardian:plan/]
     Plan -->|plan-ts.md| Design[/tdd-guardian:design-tests/]
-    Design -->|tests-ts.md| Impl[/tdd-guardian:implement WI-N/]
+    Design -->|tests-ts.md| Attack[tdd-spec-adversary]
+    Attack -->|SURVIVED| Impl[/tdd-guardian:implement WI-N/]
+    Attack -->|GAPS FOUND| Design
     Impl -->|per work item| Impl
     Impl -->|all DONE| Cov[/tdd-guardian:audit-coverage/]
     Cov -->|PASS| Mut[/tdd-guardian:audit-mutation/]
@@ -18,6 +20,8 @@ flowchart LR
     Plan -. dispatches .-> PlannerAgent[tdd-planner]
     Design -. dispatches .-> DesignerAgent[tdd-test-designer]
     Impl -. dispatches .-> ImplAgent[tdd-implementer]
+    Impl -. red receipt .-> Receipt[(receipts.json)]
+    Rev -. reads .-> Receipt
     Cov -. dispatches .-> CovAgent[tdd-coverage-auditor]
     Mut -. dispatches .-> MutAgent[tdd-mutation-auditor]
     Rev -. dispatches .-> RevAgent[tdd-reviewer]
@@ -26,6 +30,8 @@ flowchart LR
 ```
 
 Any failed gate halts the pipeline; the user fixes the evidence surfaced by the report and re-runs only the failed stage.
+
+Note where the adversary sits. It is the only gate that runs **before** an implementation exists — every other one reads code that has already been written, by which point the specification has been shaped by knowing how the thing was built. That loop back to `design-tests` is the one place the specification can still be strengthened independently.
 
 ## Walkthrough — Building a JWT token validator with TDD Guardian
 
@@ -95,7 +101,25 @@ Plan lives at `.claude/tdd-guardian/plan-20260424-094500.md`.
 /tdd-guardian:design-tests .claude/tdd-guardian/plan-20260424-094500.md
 ```
 
-`tdd-test-designer` produces a matrix per work item, with every case specifying a lane, an assertion strategy (Level 1-5), a mock boundary, and — whenever a boundary is mocked — the paired integration-lane case that covers the real path. The command's wiring-only quality gate re-dispatches up to twice if any case slips through with only Level 6-7 assertions.
+`tdd-test-designer` produces a matrix per work item. Every unit answers the law question once — *does this have a conserved quantity, a round-trip, an idempotent operation?* — and every case specifies a lane, an assertion strategy (Level 1-5), a specification level (S1-S6), a mock boundary, and, whenever a boundary is mocked, the paired integration-lane case covering the real path.
+
+Then `tdd-spec-adversary` attacks the finished matrix:
+
+```
+## Verdict: GAPS FOUND (1)
+
+### Gap 1: half the operation
+- Passing-but-wrong implementation:
+    verify(token) { return decodeHeader(token).alg !== "none" }
+- Why every listed case passes: all three examples use tokens whose
+  signature happens to be valid, so no case distinguishes "checked the
+  signature" from "checked the algorithm field".
+- Missing case: a token with a valid header and a tampered payload
+  - Level: S3 — a named failure mode
+  - Assertion: expect(() => verify(tampered)).toThrow(InvalidSignature)
+```
+
+The designer is re-dispatched with the gap report, up to twice. The command's wiring-only quality gate also re-dispatches if any case slips through with only Level 6-7 assertions.
 
 Matrix lives at `.claude/tdd-guardian/tests-20260424-094800.md`.
 
@@ -107,8 +131,10 @@ Matrix lives at `.claude/tdd-guardian/tests-20260424-094800.md`.
 
 `tdd-implementer`:
 1. Writes `test/jwks-fetcher.test.ts` first — runs, fails (red).
-2. Writes minimal `src/jwks-fetcher.ts` — runs `pnpm test`, passes (green).
-3. Reports `Status: DONE` with test and source file paths, verification output, and duration.
+2. Records the red: `receipt.js record --id WI-1`. This confirms the failure was a real assertion failure (`3 of 3 tests failed`) rather than a missing module or a zero-test run, and fingerprints the test file.
+3. Writes minimal `src/jwks-fetcher.ts` — runs `pnpm test`, passes (green).
+4. Verifies the specification held: `receipt.js verify --id WI-1`. If an assertion in `jwks-fetcher.test.ts` changed between steps 2 and 4, that is reported as a High finding — the implementation edited its own acceptance criteria.
+5. Reports `Status: DONE` with test and source file paths, the separation verdict, verification output, and duration.
 
 Then repeat:
 
@@ -125,7 +151,9 @@ If any verification fails, the command lets the user retry once; a second failur
 /tdd-guardian:audit-coverage
 ```
 
-Runs every lane with `coverage: "include"`, merges their reports (union when all carry per-line detail, weighted and flagged otherwise), and compares the merged totals against thresholds. On PASS, writes `.claude/tdd-guardian/coverage-20260424-101200.md` and updates `state.json`. On FAIL, lists uncovered branches per file with the lane each gap belongs in, and proposes Level 1-5 tests to close each.
+Runs every lane with `coverage: "include"`, merges their reports (union when all carry per-line detail, weighted and flagged otherwise), and compares the merged totals against thresholds — then evaluates each `criticalPaths` entry against its own stricter bar. On PASS, writes `.claude/tdd-guardian/coverage-20260424-101200.md` and updates `state.json`. On FAIL, lists uncovered branches per file with the lane each gap belongs in, and proposes tests to close each with both an assertion level and a specification level.
+
+A critical path can fail while the project total passes; that is the point of having it. A glob matching no file is reported as `matched nothing` rather than as a pass — a threshold enforcing nothing must never look enforced.
 
 ### 6. Mutation gate (if enabled)
 
@@ -191,8 +219,11 @@ The gate logic that both hooks and several commands depend on is implemented onc
 | `lib/coverage.js` | Parse 9 coverage formats; merge as union or weighted |
 | `lib/lanes.js` | Lane selection by trigger, execution, state, freshness |
 | `lib/exec.js` | Run a command and classify runner failure vs test failure |
+| `lib/verification.js` | Classify a red, fingerprint spec files, verify separation held |
 
 Commands should invoke these rather than re-deriving the logic in prose — hand-parsing LCOV or XML in a prompt is where wrong numbers come from.
+
+One executable sits alongside the hooks: `scripts/tdd-guardian/receipt.js`, the red-receipt CLI. `/tdd-guardian:implement` runs `record` between red and green, then `verify` once the lane is green.
 
 ### Agents
 
@@ -200,7 +231,8 @@ Commands should invoke these rather than re-deriving the logic in prose — hand
 |-------|------|-------|
 | tdd-planner | Decompose tasks into work items | read-only |
 | tdd-test-designer | Build behavior-driven test matrices | read + limited write (matrix file only) |
-| tdd-implementer | Red-green-refactor one WI at a time | read + write + test runner |
+| tdd-spec-adversary | Attack the matrix before code exists; find the wrong implementation that passes | read-only |
+| tdd-implementer | Red-green-refactor one WI at a time, with red receipts | read + write + test runner |
 | tdd-coverage-auditor | Run coverage, compare, propose tests | read + test runner |
 | tdd-mutation-auditor | Run mutation, list survivors, propose killing tests | read + mutation runner |
 | tdd-reviewer | Classify assertions, flag anti-patterns | read-only |
@@ -209,13 +241,13 @@ Commands should invoke these rather than re-deriving the logic in prose — hand
 
 | Skill | Role |
 |-------|------|
-| policy-core | Assertion hierarchy (Level 1-7), mock rules, completion gates |
+| policy-core | Assertion hierarchy (Level 1-7), spec strength (S1-S6), mock rules, change-tax rules, completion gates |
 | lane-policy | Test-level taxonomy — which behavior belongs at which tier |
-| tooling-catalog | Per-language runners, coverage tools, formats, probes (index + 9 references) |
-| test-matrix | Matrix categories, assertion strategy table, mock decision tree |
-| coverage-gate | Coverage thresholds, multi-lane merge, test-quality scan, v8 ignore audit |
+| tooling-catalog | Per-language runners, coverage tools, formats, mutation and property libraries, probes (index + 9 references) |
+| test-matrix | Matrix categories, the per-unit law question, assertion strategy table, mock decision tree |
+| coverage-gate | Coverage thresholds, critical paths, multi-lane merge, test-quality scan, v8 ignore audit |
 | mutation-gate | Per-language tool reference, operator catalog, surviving-mutant patterns |
-| review-gate | Final-review rubric, including the lane audit |
+| review-gate | Final-review rubric: lane audit, specification strength, change tax |
 | init | Initialization checks |
 | workflow | Workflow orchestration reference |
 
@@ -224,7 +256,7 @@ Commands should invoke these rather than re-deriving the logic in prose — hand
 | Hook | Script | Role |
 |------|--------|------|
 | PreToolUse (Bash matcher) | `pretool_guard.js` | Classifies commit-class vs push-class commands; denies (or warns) when a required lane is stale |
-| TaskCompleted | `taskcompleted_gate.js` | Optional — runs `taskCompleted` lanes, merges coverage, records per-lane state |
+| TaskCompleted | `taskcompleted_gate.js` | Optional — runs `taskCompleted` lanes, merges coverage, evaluates critical paths, verifies red receipts, records per-lane state |
 
 ## FAQ
 
@@ -300,6 +332,45 @@ Known cases: go-cover measures no functions and no branches; coverage.py measure
 ### Q: How do I audit a single file's coverage?
 
 A: Pass the path as the argument: `/tdd-guardian:audit-coverage src/queue.ts`. The gate still evaluates whole-project totals — you can't lower the bar for one file — but the uncovered-code and proposed-tests tables focus on that path.
+
+### Q: My repo can't hit 100% everywhere, but the payment code must be perfect. What do I set?
+
+A: That is exactly what `criticalPaths` is for. Set a realistic repo-wide `coverageThresholds` (or `coverageMode: "no-decrease"` to ratchet from where you are), then add a strict entry for the code that matters:
+
+```json
+"coverageThresholds": { "lines": 70, "functions": 70, "branches": 60, "statements": 70 },
+"criticalPaths": [
+  { "glob": "src/payments/**", "thresholds": { "lines": 100, "functions": 100, "branches": 100, "statements": 100 }, "requireSpecLevel": "S5" }
+]
+```
+
+The repo total and the critical path are evaluated separately, and the gate fails if either does. Critical paths stay absolute even under `no-decrease` — a moving baseline is the wrong instrument for code that must simply be right.
+
+### Q: What is a "law", and how do I know if my unit has one?
+
+A: A law is something that must hold for *every* input, not just the ones you listed. Conservation (`a.balance + b.balance` unchanged by a transfer), round-trip (`parse(print(x))` equals `x`), idempotence (applying twice equals applying once), ordering (the output is always sorted), monotonicity (more input never yields less output).
+
+If your unit has one, one property test (S4-S6) is worth more than ten more examples — it kills a whole class of wrong implementations at once. If it doesn't — a formatter, a thin adapter — say so in the matrix. "No law" is a valid answer; silence is not, because an unanswered question looks exactly like an unnoticed one.
+
+### Q: What is a red receipt, and do I have to use them?
+
+A: A record that your new tests failed, for a reason proving the tests actually ran, before the implementation existed — plus a per-line fingerprint of those test files. `verify` re-runs the lane and, once it is green, re-checks the fingerprints. If a recorded line changed on the way to green, the implementation edited its own acceptance criteria, and you get a High finding. **Adding** cases is fine and reports as an extension, because every recorded line is still there.
+
+`record` also refuses several things that would produce evidence proving nothing: a path outside the workspace, a symlink, a missing file, an ambiguous lane choice, a run during which the lane rewrote your test, and an attempt to overwrite a good receipt with a failed one.
+
+They are opt-in. Without them the separation check reports `NOT-RECORDED`, which is honest: the plugin cannot tell a test-after commit from a correct red/green cycle that happened inside one task, so it does not guess. It never reports a missing receipt as a violation.
+
+### Q: `record` exited non-zero and said my red "proves nothing". Why?
+
+A: Because the suite failed for a reason that does not demonstrate any assertion ran — zero tests discovered, a missing module, a syntax error, a dead runner. All of those exit non-zero and look red to a shell, and none of them proves a specification exists.
+
+This is an environment failure, not a code failure. Fix the runner and record again. Do not edit source to chase it — that is the same rule the lane gates apply, in a different place.
+
+### Q: The adversary keeps finding gaps. Is my test design bad?
+
+A: Not necessarily — it is doing its job. It attacks with ten specific patterns (hard-coded return, lookup table, half the operation, no state transition, ignored argument, off-by-one, swallowed error, non-idempotent, order-dependent, unbounded), and most first-draft matrices lose to two or three of them.
+
+The fix is usually **one** case, not ten. A conservation invariant defeats "half the operation", "ignored argument", and "non-idempotent" together. If the gaps persist after two rounds, the workflow surfaces them and stops guessing — implementing against a specification with known holes is a decision for you, not for the plugin.
 
 ## Troubleshooting
 

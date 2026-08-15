@@ -1,7 +1,7 @@
 {
   "name": "tdd-guardian",
-  "version": "0.8.1",
-  "description": "TDD Guardian \u2014 enforces strict test-driven development in Claude Code with per-lane gates (unit/integration/e2e/contract), CI-first tooling detection with dry-run verification, 9-format coverage merging, and mutation testing across 25+ languages",
+  "version": "0.9.0",
+  "description": "TDD Guardian — enforces strict test-driven development in Claude Code with per-lane gates (unit/integration/e2e/contract), specification-strength levels S1-S6 with property tooling, adversarial spec review before implementation, red receipts proving spec/implementation separation, per-path critical thresholds, CI-first tooling detection with dry-run verification, 9-format coverage merging, and mutation testing across 25+ languages",
   "author": {
     "name": "xiaolai"
   },
@@ -14,7 +14,9 @@
     "mutation-testing",
     "quality-gates",
     "e2e",
-    "integration-testing"
+    "integration-testing",
+    "property-testing",
+    "invariants"
   ],
   "category": "developer-tools"
 }

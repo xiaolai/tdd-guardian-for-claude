@@ -131,6 +131,48 @@ options:
 
 Ask about `coverageMode` when the repo has pre-existing coverage gaps: `"no-decrease"` ratchets from a recorded baseline instead of demanding an absolute threshold on day one.
 
+#### Propose the mutation tool, always
+
+Coverage measures which lines executed. It cannot measure whether any assertion would have noticed a wrong value on those lines — mutation testing is the only gate that does, and a repo with 100% coverage and wiring-only tests scores exactly as well as one with real ones.
+
+So whenever `tooling-catalog` names a mutation tool for a detected ecosystem, propose it, even though the default stays off:
+
+```
+question: "Configure mutation testing? Coverage proves your tests RAN; mutation proves they would CATCH a wrong implementation."
+header: "Mutation"
+options:
+  - "Configure it, gate on push (recommended)" — mutationCommand set, requireMutation true, mutationGateOn ["push"]
+  - "Configure it, run manually" — mutationCommand set, requireMutation false
+  - "Skip" — leave mutationCommand empty and record it as a known verification gap
+```
+
+Never set `requireMutation: true` on `taskCompleted`. Mutation runs take minutes to hours; on the inner loop it makes the plugin unusable, which is how gates get disabled entirely.
+
+If the user skips, say so in the report under **Verification gaps** rather than staying silent. A dimension nobody configured is not a defect, but an unnamed gap lets a green board imply verification it does not have.
+
+#### Propose critical paths where the repo has them
+
+A lane says how expensive a suite is to RUN. `criticalPaths` says how expensive the code is to get WRONG, and no single repo-wide threshold can express both.
+
+Look for directories whose name or content marks them as high-consequence: payments, billing, auth, crypto, session, permissions, migrations, anything the CI config already treats specially. Propose at most two or three; a list of ten is a second repo-wide threshold wearing a costume.
+
+```json
+"criticalPaths": [
+  {
+    "glob": "src/payments/**",
+    "description": "Money movement — a defect here is not recoverable by a redeploy.",
+    "thresholds": { "lines": 100, "functions": 100, "branches": 100, "statements": 100 },
+    "requireSpecLevel": "S5"
+  }
+]
+```
+
+Rules the config validator enforces, so propose accordingly: a critical threshold looser than the repo-wide one warns; brace expansion (`src/{a,b}/**`) is rejected — write one entry per alternative; `requireMutation` on a critical path is an error unless `mutationCommand` is set; and `thresholds` must be JSON numbers, so `"100"` is rejected rather than quietly ignored.
+
+Propose globs you have checked against real report paths. A glob that matches no file **fails** the gate — there is no legitimate steady state where a critical path matches nothing — so a speculative entry for a directory that does not exist yet is worse than no entry.
+
+Critical-path thresholds need a coverage format with per-file entries. Every format the plugin reads has them, but if the merged report somehow arrives without per-file data the gate **fails** rather than skipping — a strict rule that cannot be evaluated must never report success.
+
 ### Step 4 — Write the config
 
 Write `.claude/tdd-guardian/config.json`:
@@ -179,14 +221,22 @@ Write `.claude/tdd-guardian/config.json`:
     }
   ],
   "coverageThresholds": { "lines": 100, "functions": 100, "branches": 100, "statements": 100 },
+  "criticalPaths": [
+    {
+      "glob": "src/payments/**",
+      "description": "Money movement — a defect here is not recoverable by a redeploy.",
+      "thresholds": { "lines": 100, "functions": 100, "branches": 100, "statements": 100 },
+      "requireSpecLevel": "S5"
+    }
+  ],
   "coverageMode": "absolute",
   "requireMutation": false,
-  "mutationCommand": "",
-  "mutationGateOn": ["taskCompleted"]
+  "mutationCommand": "npx stryker run",
+  "mutationGateOn": ["push"]
 }
 ```
 
-Include only the lanes the repo actually has. Drop `probeCommand` when no probe exists for that runner.
+Include only the lanes the repo actually has. Drop `probeCommand` when no probe exists for that runner. Omit `criticalPaths` entirely when the repo has no high-consequence directory — an empty array and a missing key behave identically, and inventing a critical path to fill the field teaches the user to ignore it.
 
 ### Step 5 — Update .gitignore
 
@@ -195,9 +245,10 @@ Append if not already present:
 ```
 # tdd-guardian generated artifacts
 .claude/tdd-guardian/state.json
+.claude/tdd-guardian/receipts.json
 ```
 
-`config.json` is committed — it is shared team configuration. `state.json` is per-machine gate history and must not be.
+`config.json` is committed — it is shared team configuration. `state.json` is per-machine gate history and `receipts.json` is per-working-tree red evidence; neither means anything on another machine, and both change on every run.
 
 ### Step 6 — Report
 
@@ -229,6 +280,29 @@ Append if not already present:
 {Each ecosystem or CI job found but not turned into a lane, with the reason.
 Write "Nothing — every suite found is configured." when the list is empty; an
 omitted section reads as "nothing found" rather than "nothing left out".}
+
+## Critical paths
+
+| Glob | Thresholds | Spec level | Why |
+|------|-----------|------------|-----|
+| `src/payments/**` | 100 / 100 / 100 / 100 | S5 | Money movement — not recoverable by a redeploy |
+
+{Omit the section when none were configured; the Verification gaps section
+covers that case.}
+
+## Verification gaps
+
+{Render this on every init, even a perfect one. Name every dimension NOT being
+verified, each as unmeasured rather than failed:}
+
+| Gap | State | Consequence |
+|-----|-------|-------------|
+| Mutation testing | not configured | Coverage proves the tests ran, not that they would catch a wrong implementation |
+| Critical paths | none configured | One threshold treats every directory as equally expensive to get wrong |
+| Property tests | none detected | A repo with conservation laws or round-trips is specified by examples alone |
+
+{Write "None — every dimension is configured" when that is true. Never omit the
+section: a silent gap reads as coverage the setup does not have.}
 
 ## Prerequisites you must install
 
