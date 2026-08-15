@@ -52,6 +52,13 @@ Per the agent's documented severity guidelines:
 | Test in the wrong lane per lane-policy | Medium |
 | Missing test for error path | Medium |
 | Missing test for happy path | High |
+| Recorded red receipt with verdict SEPARATION-BROKEN | High |
+| Every test for a unit passes against a hard-coded return | High |
+| criticalPaths entry with requireSpecLevel unmet | High |
+| Unit has a law but no S4-S6 case covers it | Medium |
+| Refactor with no behavior change edits existing assertions | Medium |
+| Interface with one production implementation and one test double | Medium |
+| More distinct mocks in a test than the unit has collaborators | Medium |
 
 Any deviation from these severities without explicit justification is a spec violation.
 
@@ -63,6 +70,19 @@ If no findings exist, agent MUST state that explicitly — not return an empty r
 
 Allowed tools: `Read, Grep, Glob`. No `Write`, no `Edit`, no `Bash`. Reviewer is strictly read-only.
 
+## Bidirectional-audit rule
+
+The reviewer must report BOTH directions of test defect, not only under-verification:
+
+- **Under-verified**: wiring-only tests, mocked internals, unpaired boundaries, units with a law and no property.
+- **Over-coupled (change tax)**: refactors editing existing assertions with no behavior change, single-implementation interfaces existing only to be mocked, mock counts exceeding collaborator counts.
+
+A review that reports only the first direction is a spec violation. Pushing for more verification without the counterweight produces suites nobody dares refactor.
+
+## Receipt-reading rule
+
+If `.claude/tdd-guardian/receipts.json` exists, the reviewer must read it and report every `SEPARATION-BROKEN` verdict as High, naming the files. A missing receipts file is reported as `separation unverified`, never as a violation.
+
 ## Output schema
 
 ```
@@ -73,6 +93,12 @@ Allowed tools: `Read, Grep, Glob`. No `Write`, no `Edit`, no `Bash`. Reviewer is
 
 ## Test quality findings
 (wiring-only tests, mocked internals, security via mock args, etc.)
+
+## Specification-strength findings
+(units with a law specified only by examples)
+
+## Change-tax findings
+(tests coupled to structure rather than behavior)
 
 ## Missing-test findings
 (paths without coverage of an error branch or happy path)
