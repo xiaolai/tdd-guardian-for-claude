@@ -108,10 +108,12 @@ Claude Code registers a plugin command as `/<plugin-name>:<file-basename>`. Neve
 
 ### Adding new agents
 
-1. Create `agents/tdd-<name>.md` with YAML frontmatter including `model:` and a least-privilege `allowed-tools:`.
+1. Create `agents/tdd-<name>.md` with YAML frontmatter including `model:` and a least-privilege `tools:`.
+   - **The field is `tools:`, never `allowed-tools:`.** `allowed-tools:` is the *command* field; a subagent declaring it gets no restriction at all and silently inherits the full tool pool. Every agent here shipped with that bug until 0.9.0, so the `## Tools` table claimed a least-privilege boundary that was never in effect — including on the read-only reviewer, whose entire safety argument is that it cannot edit what it reviews. A restriction that does not restrict is worse than none, because it stops anyone looking.
 2. Add a `## Tools` table to the body naming what each declared tool is for. An audit/review/scan agent must not declare `Write` or `Edit`.
 3. Add a `## Output format` section with a concrete template.
 4. Reference in `commands/workflow.md` if part of the workflow, and update `README.md`.
+5. Verify the frontmatter actually restricts: `awk '/^---$/{n++;next} n==1 && /^tools:/' agents/*.md` must print one line per agent.
 
 ## Prerequisites
 

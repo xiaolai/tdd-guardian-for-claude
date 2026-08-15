@@ -11,7 +11,7 @@ description: |
   assistant: "I'll dispatch the tdd-coverage-auditor to run coverage focused on src/queue.ts, identify uncovered lines and branches, and propose concrete test cases to bring the file to threshold."
   </example>
 model: inherit
-allowed-tools: Read,Bash,Grep,Glob
+tools: Read, Bash, Grep, Glob
 skills:
   - tdd-guardian:policy-core
   - tdd-guardian:coverage-gate

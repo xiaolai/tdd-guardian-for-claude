@@ -11,7 +11,7 @@ description: |
   assistant: "I'll dispatch the tdd-mutation-auditor to verify Stryker is available, run mutation tests against the pricing module, and report each survivor with a proposed boundary test and its assertion level — or report a blocker if the tool is missing."
   </example>
 model: inherit
-allowed-tools: Read,Bash,Grep,Glob
+tools: Read, Bash, Grep, Glob
 skills:
   - tdd-guardian:policy-core
   - tdd-guardian:mutation-gate

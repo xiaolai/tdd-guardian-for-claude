@@ -11,7 +11,7 @@ description: |
   assistant: "I'll dispatch the tdd-implementer for WI-2: write the rollback handler tests (red), implement the handler (green), confirm via Bash, then report the result before moving to WI-3."
   </example>
 model: inherit
-allowed-tools: Read,Write,Edit,Bash,Grep,Glob
+tools: Read, Write, Edit, Bash, Grep, Glob
 skills:
   - tdd-guardian:policy-core
   - tdd-guardian:test-matrix

@@ -11,7 +11,7 @@ description: |
   assistant: "I'll dispatch the tdd-planner to decompose the currency refactor into discrete work items, identify risks, and define the test targets before any code is written."
   </example>
 model: inherit
-allowed-tools: Read,Grep,Glob
+tools: Read, Grep, Glob
 skills:
   - tdd-guardian:policy-core
   - tdd-guardian:test-matrix

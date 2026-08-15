@@ -11,7 +11,7 @@ description: |
   assistant: "I'll dispatch the tdd-test-designer to design behavior-driven tests with real file fixtures — no mocking the fs module — covering all edge cases and specifying Level 1-5 assertions for each."
   </example>
 model: inherit
-allowed-tools: Read,Write,Grep,Glob
+tools: Read, Write, Grep, Glob
 skills:
   - tdd-guardian:policy-core
   - tdd-guardian:test-matrix

@@ -11,7 +11,7 @@ description: |
   assistant: "I'll dispatch the tdd-reviewer to classify every expect() call in the upload handler test file, flag all wiring-only tests, and identify which behavior assertions are missing before this can be approved."
   </example>
 model: inherit
-allowed-tools: Read,Grep,Glob
+tools: Read, Grep, Glob
 skills:
   - tdd-guardian:policy-core
   - tdd-guardian:review-gate
