@@ -31,11 +31,59 @@ A test must verify what the code **does** (its observable output, side effects, 
 | 6 | **Mock call args** | `expect(mockFn).toHaveBeenCalledWith(...)` | Weak |
 | 7 | **Mock was called** | `expect(mockFn).toHaveBeenCalled()` | Unacceptable alone |
 
+### Specification strength (the third axis)
+
+The assertion hierarchy asks *how implementation-independent is this check*. It does not ask *how much of the input space the claim covers*, and those are different questions. `expect(add(2, 3)).toBe(5)` is a Level 1 assertion — top of the hierarchy — and it specifies almost nothing. An implementation returning `5` for every input satisfies it.
+
+| Level | The claim | Example |
+|-------|-----------|---------|
+| S1 | **Example** — one input, one expected output | `expect(fee(100)).toBe(3)` |
+| S2 | **Boundary / equivalence class** — the edges of a partition | `fee(0)`, `fee(-1)`, `fee(MAX_SAFE_INTEGER)` |
+| S3 | **Failure mode** — the named way it goes wrong | `expect(() => fee(NaN)).toThrow(RangeError)` |
+| S4 | **Property** — holds across a generated input domain | for all `n >= 0`: `fee(n) <= n` |
+| S5 | **Invariant across state transitions** — conservation, round-trip, idempotence | `transfer` preserves `a.balance + b.balance`; `parse(print(x))` equals `x`; `retry(id)` debits once |
+| S6 | **Metamorphic relation** — a relation between outputs when no oracle exists | `search(q)` results are a superset of `search(q + " " + extraTerm)` |
+
+The three axes are independent. A unit test can be Level 1 / S5. An e2e test can be Level 7 / S1.
+
+**S4-S6 are not a target for every test.** Demanding properties everywhere produces contrived generators over units that have no law, which is its own waste. The rule is narrower and checkable:
+
+> Where a unit **has a law** — a conserved quantity, a round-trip, an idempotent operation, a total ordering, a monotonic relation, or a stated invariant — at least one S4-S6 case must cover it. Where a unit has no law, the test matrix says so explicitly rather than leaving the question unasked.
+
+The banking example is the canonical case. This is S1, and it is weak:
+
+```typescript
+// S1: passes against an implementation that credits without debiting
+transfer(a, b, 100);
+expect(a.balance).toBe(900);
+expect(b.balance).toBe(1100);
+```
+
+This is S5, and it is what the code actually promises:
+
+```typescript
+// S5: conservation — no implementation that loses or invents money can pass
+const before = a.balance + b.balance;
+transfer(a, b, 100);
+expect(a.balance + b.balance).toBe(before);
+
+// S5: idempotence — a retried transfer must not debit twice
+transfer(a, b, 100, { idempotencyKey: "k1" });
+transfer(a, b, 100, { idempotencyKey: "k1" });
+expect(a.balance + b.balance).toBe(before);
+
+// S3 + S5: a failed transfer moves nothing
+expect(() => transfer(a, b, 999999)).toThrow(InsufficientFunds);
+expect(a.balance).toBe(startingA);
+```
+
+Tooling per language is in `tdd-guardian:tooling-catalog` — every language the catalog covers names a property-testing library, because a level the catalog cannot equip is aspiration, not policy.
+
 ### Test levels (the second axis)
 
 The hierarchy above asks *how strongly does this test verify anything*. A separate question must also be answered for every test: *at what level does this behavior get verified* — unit, integration, e2e, or contract.
 
-The two axes are independent. A unit test can carry a Level 1 assertion; an e2e test can carry a Level 7 one. See the `tdd-guardian:lane-policy` skill for which behavior belongs at which level, and for how lanes bind to gate triggers.
+This axis is independent of both the assertion hierarchy and specification strength. A unit test can carry a Level 1 assertion; an e2e test can carry a Level 7 one. See the `tdd-guardian:lane-policy` skill for which behavior belongs at which level, and for how lanes bind to gate triggers.
 
 The rule that settles borderline cases:
 
@@ -58,6 +106,9 @@ The rule that settles borderline cases:
 8. Include state-transition/idempotency tests when behavior is stateful.
 9. Include timeout/retry/concurrency tests when logic is async or distributed.
 10. Avoid assertion-free tests and snapshot-only logic verification.
+11. **A unit with a law needs an S4-S6 case.** Conservation, round-trip, idempotence, ordering, and monotonicity are laws. A unit that has one and is specified only by examples is under-specified, however high its coverage. A unit with no law records that fact in the matrix instead of leaving the question unasked.
+12. **The specification must not move while the implementation is made to satisfy it.** Editing an existing assertion to make a failing implementation pass destroys the independence the test was written for. Adding cases is always fine; changing recorded ones requires a stated reason for why the original specification was wrong. `/tdd-guardian:implement` records a red receipt so this is checkable rather than aspirational.
+13. **Do not restructure production code purely to make it mockable.** An interface with exactly one production implementation and one test double is a testability artifact, not a design. Prefer moving the test one lane up over inventing a seam.
 
 ### Anti-patterns (flag these in review)
 
@@ -129,6 +180,41 @@ const value = input ?? defaultValue;
 
 **Mandatory rule**: flag any `/* v8 ignore next */` or `/* v8 ignore next N */` in review as a potential silent failure. Replace with `/* v8 ignore start */` / `/* v8 ignore stop */`.
 
+## What a test is worth, and what it costs
+
+Every rule above pushes in one direction: verify more, verify more honestly. Pushed without a counterweight, that produces the opposite pathology — a suite so coupled to structure that a rename breaks two hundred tests and nobody refactors again. A test suite is not free, and the plugin must be able to say so.
+
+**What tests buy is not fewer bugs today. It is a lower marginal cost of future change.** Without verification, changing existing code means unknown consequences, manual inspection, and the entirely rational fear that stops refactoring; the debt compounds and the next change costs more. That is the axis worth spending on.
+
+Which gives a usable heuristic for how much verification a given piece of code deserves:
+
+| Raises the value of verifying | Lowers it |
+|-------------------------------|-----------|
+| How often the code changes | How cheaply a defect is detected in production |
+| What a failure costs | How fast a bad change can be rolled back |
+| How long the system will live | How short-lived the code is |
+| How many people and agents touch it | How much the test itself will cost to maintain |
+
+A one-off 500-line migration script rationally gets no test suite. A payment core maintained for a decade rationally gets property tests, mutation testing, and a stricter coverage bar than the repo average. Express that difference with `criticalPaths` in config — one repo-wide threshold cannot, and a repo forced to choose one number for everything picks the low one.
+
+### The change-tax anti-patterns
+
+These are findings in the same way wiring-only tests are findings — they are the same defect seen from the other side.
+
+| Anti-pattern | Why it fails | Fix |
+|--------------|--------------|-----|
+| A refactor with no behavior change edits dozens of existing assertions | The tests specify structure, not behavior | Assert observable results; move the test one lane up |
+| An interface with one production implementation and one test double | The seam exists only to be mocked | Delete the interface; use the real collaborator |
+| More mocks in a test than the unit has collaborators | The test reconstructs the implementation | Use real objects, or promote the case to `integration` |
+| Classes split below the level of any behavior, one test file each | Test count tracks structure, not risk | Test the behavior the caller can observe |
+| A test that must change whenever a private method is renamed | It reaches through the public surface | Assert through the public surface only |
+
+The question to settle a borderline case is **not** "is everything unit-testable?" It is:
+
+> Are the externally observable behaviors and the invariants cheaply verifiable?
+
+Those are different questions, and only the second one is worth designing for.
+
 ## Completion gates
 
 1. Every lane bound to the trigger must pass. A lane that discovered zero tests is a failure, not a pass — green with nothing run is indistinguishable from green with everything run. The one exception is a lane that has **never** had a test (bootstrap): a greenfield repo is not a broken one, so the gate reports it loudly on every run instead of blocking. That exception ends permanently the moment the lane discovers its first test.
@@ -136,8 +222,11 @@ const value = input ?? defaultValue;
 3. A coverage report measuring zero lines fails the gate. Under the 0/0 convention it scores 100%, so a silent no-op run would otherwise pass.
 4. **Test quality audit**: no test file may have ONLY Level 6-7 assertions. Every test must include at least one Level 1-5 assertion.
 5. **Lane audit**: every mocked boundary has a named integration-lane test covering the real path.
-6. Mutation gate must pass when enabled.
-7. High-severity findings must be resolved or explicitly waived with rationale.
+6. **Specification-strength audit**: every unit with a law has an S4-S6 case, and every `criticalPaths` entry with a `requireSpecLevel` meets it. A unit with no law is recorded as such, not skipped in silence.
+7. **Critical-path coverage**: every `criticalPaths` entry meets its own thresholds. A glob matching nothing is reported — a strict rule enforcing nothing must never read as enforced.
+8. **Separation check**: recorded red receipts still hold. A test file edited between red and green is a High finding unless the change carries a stated reason.
+9. Mutation gate must pass when enabled.
+10. High-severity findings must be resolved or explicitly waived with rationale.
 
 ## Scope
 

@@ -11,7 +11,7 @@ description: Spec for tdd-test-designer — produces behavior-driven test matric
 
 Scenario: "Design tests for the rate-limiter middleware covering success, boundaries, and concurrency."
 Expected: agent fires, produces `## Test Matrix:` section with multiple `### Case:` entries.
-Must contain: `Assertion strategy` line specifying a Level 1-5 value for every case; `Mock boundary` line for every case.
+Must contain: `Assertion strategy` line specifying a Level 1-5 value for every case; `Spec level` line specifying S1-S6 for every case; `Mock boundary` line for every case; a `**Law**:` line per unit.
 
 ### P2: dispatch from /tdd-guardian:design-tests
 
@@ -43,6 +43,8 @@ Expected: agent does NOT fire. Coverage-auditor is correct.
 For each test case in the output, the self-check answer MUST be present or implicit — if replacing the function body with `return expectedValue` would still pass, the case is wiring-only and must be redesigned. Spec-level check:
 
 - No case may list only a Level 6 or Level 7 assertion strategy.
+- Every unit must carry a `**Law**:` line. `No law: {reason}` is a valid value; omitting the line is a spec violation, because an unanswered question is indistinguishable from an unnoticed one.
+- Every unit whose law line names a law must carry at least one case at S4, S5, or S6.
 - No case may have `Assertion strategy: expect(mockX).toHaveBeenCalled` as its sole strategy.
 
 ## Lane assignment

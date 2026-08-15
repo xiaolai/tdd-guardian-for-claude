@@ -89,6 +89,46 @@ A dimension a tool does not measure is reported as `null`, not zero, and produce
 | go-cover | yes | **no** | **no** | yes |
 | simplecov | yes | **no** | **no** (without the branch flag) | mirrors lines |
 
+## Property-testing libraries
+
+`policy-core` requires an S4-S6 case for every unit that has a law. That requirement is only real if a library exists to express it, so the catalog names one per ecosystem. Where the column says **none in wide use**, that is the honest answer: fall back to table-driven S2/S3 cases over a hand-written input set, and say so in the matrix rather than pretending a property was checked.
+
+| Ecosystem | Library | Notes |
+|-----------|---------|-------|
+| JavaScript / TypeScript | `fast-check` | Integrates with Vitest, Jest, and node:test; shrinks counterexamples |
+| Python | `hypothesis` | Also has `stateful` testing for S5 state-machine invariants |
+| Java / Kotlin | `jqwik` | JUnit 5 engine; `@Property` alongside ordinary `@Test` |
+| Scala | `ScalaCheck` | Bundled with ScalaTest and munit |
+| Clojure | `test.check` | `clojure.spec` generators feed it directly |
+| C# / F# | `FsCheck`, `CsCheck` | FsCheck drives xUnit/NUnit from both languages |
+| Go | `pgregory.net/rapid` | Stdlib `testing/quick` exists but does not shrink; prefer rapid |
+| Rust | `proptest`, `quickcheck` | proptest shrinks structurally; both integrate with `cargo test` |
+| C / C++ | `RapidCheck` | Integrates with GoogleTest and Catch2 |
+| Swift | `SwiftCheck` | SPM package; XCTest-compatible |
+| Ruby | `rantly`, `prop_check` | Either works with RSpec and minitest |
+| PHP | `eris` | PHPUnit integration |
+| Elixir | `StreamData` | `ExUnitProperties` ships in the ecosystem; strongest fit for S5 |
+| Erlang | `PropEr` | Also supports stateful/statem models |
+| Haskell | `QuickCheck`, `hedgehog` | hedgehog generates and shrinks integrally |
+| OCaml | `qcheck` | Alcotest and OUnit integrations |
+| Dart / Flutter | `glados` | Smaller ecosystem; verify it still fits the project's Dart version |
+| R | `hedgehog` | testthat-compatible |
+| Julia | `Supposition.jl` | Hypothesis-derived |
+| Zig, Lua, Perl, Shell | none in wide use | Use table-driven S2/S3 cases and record the absence |
+
+### Where properties pay and where they do not
+
+| Unit shape | Worth a property? |
+|------------|-------------------|
+| Serializer/parser pair | Yes — round-trip is the law: `parse(print(x)) == x` |
+| Money, quantities, ledgers | Yes — conservation across operations |
+| Sorting, ranking, dedup | Yes — ordering, permutation, and idempotence |
+| Retry, cache, upsert | Yes — idempotence under repetition |
+| Rate limiter, state machine | Yes — invariants across transitions (S5, stateful generators) |
+| Search, ranking, compression | Yes, as a metamorphic relation (S6) — there is no oracle to compare against |
+| A formatter with three hard-coded strings | No — S1/S2 says everything there is to say |
+| A thin adapter over one HTTP call | No — the behavior is at the `integration` lane, not in a generator |
+
 ## When a language is not in the catalog
 
 Do not guess a command. Instead:
@@ -101,7 +141,7 @@ Then check whether the tool can emit LCOV or Cobertura. Almost every coverage to
 
 ## Scope
 
-Covers the per-language facts: runners, coverage tools, report formats and paths, mutation tools, and probe commands. It is a reference table, not a procedure.
+Covers the per-language facts: runners, coverage tools, report formats and paths, mutation tools, property-testing libraries, and probe commands. It is a reference table, not a procedure.
 
 Does NOT cover:
 
