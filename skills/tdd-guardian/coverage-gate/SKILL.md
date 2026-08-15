@@ -110,6 +110,20 @@ Coverage Ignore Audit:
 Fix: replace with /* v8 ignore start */ / /* v8 ignore stop */ range comments
 ```
 
+### Gate 0: Is the merge complete enough to measure against?
+
+Runs before any threshold is compared, because a threshold applied to part of the project is a wrong number stated confidently.
+
+| Situation | Result |
+|-----------|--------|
+| Every lane with `coverage: "include"` produced a report | Continue |
+| A contributing lane ran and produced no report, while coverage is enforced | **FAIL**, naming the lane. The merge would cover a subset |
+| That lane is `optional: true` | Still fails. `optional` means "do not block on its tests", not "measure the project against whatever is left" |
+| That lane is in bootstrap | Skipped — a lane with no tests has nothing to report yet |
+| No lane is bound to the trigger at all, while coverage or critical paths are configured | **FAIL**. Enforcement was configured and is structurally unreachable |
+
+The fix is a config change, not a threshold change: repair the lane, or set `coverage: "none"` on it if it was never meant to contribute.
+
 ### Gate 4: Critical-path thresholds
 
 A repo-wide threshold is one number for code with wildly different consequences of failure. `criticalPaths` adds a second, stricter bar scoped by glob — see the value heuristic in `policy-core`.

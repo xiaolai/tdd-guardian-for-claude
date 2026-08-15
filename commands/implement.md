@@ -82,7 +82,7 @@ Once the lanes are green, run `node <resolved receipt.js path> verify --id WI-N`
 | `SEPARATION-HELD` | Continue. Report it — evidence that held is worth stating. |
 | `SEPARATION-BROKEN` | Report every named file as a High finding. The work item is DONE only if the user accepts a stated reason for each changed assertion. |
 | `NOT-RECORDED` | Report "separation unverified — no red receipt". This is not a failure; the check simply had nothing to check. |
-| `PENDING` | The lane is not green yet, so there is no red-to-green transition to judge. Fix the lane, then verify again. |
+| `PENDING` | Nothing could be judged yet — either the lane is not green, or a recorded specification file could not be read. Fix the cause and verify again; the receipt stays open rather than settling on a verdict nobody can support. |
 
 Adding test cases while implementing does **not** break separation — verification compares recorded lines, so an addition leaves every one of them intact. Only editing or deleting a line that was present at red is a finding.
 

@@ -223,7 +223,7 @@ Those are different questions, and only the second one is worth designing for.
 4. **Test quality audit**: no test file may have ONLY Level 6-7 assertions. Every test must include at least one Level 1-5 assertion.
 5. **Lane audit**: every mocked boundary has a named integration-lane test covering the real path.
 6. **Specification-strength audit**: every unit with a law has an S4-S6 case, and every `criticalPaths` entry with a `requireSpecLevel` meets it. A unit with no law is recorded as such, not skipped in silence.
-7. **Critical-path coverage**: every `criticalPaths` entry meets its own thresholds. A glob matching nothing is reported — a strict rule enforcing nothing must never read as enforced.
+7. **Critical-path coverage**: every `criticalPaths` entry meets its own thresholds. A glob matching nothing **fails** — a strict rule enforcing nothing must never read as enforced, and unlike a lane in bootstrap there is no legitimate steady state in which a critical path selects no file.
 8. **Separation check**: recorded red receipts still hold. A test file edited between red and green is a High finding unless the change carries a stated reason.
 9. Mutation gate must pass when enabled.
 10. High-severity findings must be resolved or explicitly waived with rationale.

@@ -291,6 +291,8 @@ Init never writes a zero-lane config. That config is invalid, so both hooks woul
 
 A: A lane that has never discovered a test. Zero tests is the expected state of a brand-new project, not a broken discovery glob, so the gate reports it loudly on every run instead of blocking — and skips the coverage gate, since there is nothing to measure.
 
+The skip is scoped to the lanes that were supposed to produce coverage. A bootstrap `e2e` lane does not suppress the coverage gate for a mature `unit` lane that measured something; only when every coverage-contributing lane is in bootstrap (or no lane contributes and all of them are) is there genuinely nothing to measure.
+
 The moment that lane runs its first test, `ever_had_tests` is set permanently in `state.json` and the strict rule takes over: a zero-test run becomes a hard failure, diagnosed as a regression rather than as greenfield. The ratchet is one-way, so deleting every test does not get you back to bootstrap.
 
 This keeps the fail-loud invariant honest. What it guards against is a zero-test run *silently* looking green; in bootstrap nothing is silent, and `/tdd-guardian:status` renders the lane as `bootstrap — no tests yet` rather than `passed`.
@@ -423,6 +425,33 @@ This is the exact problem TDD Guardian is designed to catch. Coverage only measu
 The `run-lane` partial classifies this as status `no-tests`, separate from `fail`, and fails the lane. Green with nothing run is indistinguishable from green with everything run, so it is never treated as a pass.
 
 Either the implementer did not write tests as instructed, or discovery is misconfigured. Run `/tdd-guardian:probe` to tell the two apart — it lists what each lane discovers without executing anything.
+
+### Gate blocks with "No lane is bound to taskCompleted, so nothing can be enforced"
+
+Symptoms: every task completion blocks, and no test suite appears to run.
+
+Cause: `enforceOnTaskCompleted` is on and the config sets coverage thresholds, critical paths, or mutation — but no lane has `taskCompleted` in its `gateOn`. Nothing runs, so none of it is evaluated.
+
+Before 0.9.0 this returned silently, which meant enforcement was requested and quietly not happening. Two fixes, both one line:
+
+1. Add `"taskCompleted"` to the `gateOn` of your fast lane, so the gates have something to run against.
+2. Or set `enforceOnTaskCompleted: false` if you only want the commit and push gates.
+
+### Gate blocks with "lane(s) with coverage:include produced no report"
+
+Symptoms: one lane passes, another fails or is skipped, and the coverage gate blocks even though the failing lane is marked `optional: true`.
+
+Cause: the merge would cover only part of the project, so every threshold below it would be measured against a subset — which can pass a bar the whole project fails.
+
+`optional: true` means "do not block on this lane's test failures". It does not mean "measure the project against whatever is left". If the lane is not meant to contribute coverage, set `coverage: "none"` on it; if it is, fix the lane.
+
+### Config now rejects a value it used to accept
+
+Symptoms: after upgrading, `/tdd-guardian:gate` stops with a validation error naming a `criticalPaths` field.
+
+Cause: 0.9.0 stopped coercing the types on fields that decide whether a rule is enforced at all. `"requireMutation": "true"` used to become `false`, and `"thresholds": {"lines": "100"}` used to silently inherit the repo-wide bar. Both looked configured and enforced nothing.
+
+The error names the field and the type it needs. `requireMutation` takes `true`/`false`, thresholds take JSON numbers, `glob` and `requireSpecLevel` take strings.
 
 ### Mutation tool takes hours
 

@@ -287,7 +287,9 @@ Fail-loud rules, all enforced:
 
 - A critical threshold **looser** than the repo-wide one warns — a critical path should tighten the gate, not loosen it.
 - Brace expansion (`src/{a,b}/**`) is **rejected**, not silently ignored. Write one entry per alternative.
-- An **empty** glob matches nothing rather than everything, and a `thresholds` value that is not a JSON number in `[0, 100]` is an error — `"100"`, `""`, `null`, and `false` are all rejected rather than quietly becoming 0.
+- An **empty** glob matches nothing rather than everything, and a `thresholds` value that is not a JSON number in `[0, 100]` is an error — `"100"`, `""`, and `false` are rejected rather than quietly becoming 0. (`null` and `{}` both mean "inherit the repo-wide thresholds", which is what omitting the key does.)
+- Types are checked rather than coerced on every field that decides whether a rule is enforced: `glob` and `requireSpecLevel` must be strings, `requireMutation` must be a boolean. `"requireMutation": "true"` used to normalise to `false`, disabling the requirement without a word.
+- A glob that selects nothing by construction — `.`, `..`, `/` — is rejected at config time rather than failing later with a confusing "matched no file".
 - Matching is **case-sensitive**. `src/Auth/**` does not also cover `src/auth/**`; on a case-sensitive filesystem that would average an unrelated directory into the score.
 - A glob matching **zero files** is a **failure**, not a warning. There is no legitimate steady state in which a critical path matches nothing — either the glob is wrong, or the code it names has no measured coverage, and both are the thing you configured it to find.
 - A threshold on a dimension the merge cannot compute exactly (functions and branches, once more than one lane contributes) is a **failure** rather than a number quoted with false confidence. Emit one authoritative report for those files, or set that threshold to 0.
@@ -312,7 +314,19 @@ Two behaviour changes worth knowing:
 - **PreToolUse now denies rather than warns** when `blockCommitWithoutFreshGate` is `true`. The old behaviour always warned regardless, which contradicted the setting's name. Set `staleGateAction: "warn"` to keep warning.
 - **Coverage parsing now handles all 9 formats.** Previously only Istanbul JSON was parsed in the hook, so Go, Rust, and Python projects saw the gate fail with "coverage summary not found or invalid" despite a valid report.
 
-**From 0.8.x.** Nothing to do — `criticalPaths` defaults to `[]`, so existing configs validate and behave exactly as before. Three additions are opt-in:
+**From 0.8.x.** The new features are opt-in, but **three gates got stricter and an unchanged config can now block where it previously passed**. Each one was a case where enforcement you had configured was silently not being evaluated:
+
+| You will see | When | Why it changed |
+|--------------|------|----------------|
+| `No lane is bound to taskCompleted, so nothing can be enforced` | `enforceOnTaskCompleted` is on, thresholds or critical paths are set, but no lane has `taskCompleted` in its `gateOn` | The hook used to return before every gate. Enforcement requested, nothing enforced, no output at all |
+| `N lane(s) with coverage:"include" produced no report` | A coverage-contributing lane fails or is skipped — including an `optional: true` one | The merge silently covered a subset, so every threshold was measured against part of the project |
+| A coverage failure where a bootstrap lane used to suppress it | You have one lane in bootstrap and another that genuinely produces coverage | The bootstrap exemption was global; one brand-new lane suppressed the whole coverage gate |
+
+If a stricter gate is wrong for your project, the fix is a config change rather than a downgrade: bind a lane to `taskCompleted`, set `coverage: "none"` on a lane that is not meant to contribute, or set the thresholds you do not want enforced to `0`.
+
+Config validation is also stricter about types, and rejects values it used to coerce. `"requireMutation": "true"` silently became `false`; `"thresholds": {"lines": "100"}` silently inherited. Both are now errors naming the field.
+
+The genuinely optional additions:
 
 - Add a `criticalPaths` entry to hold your highest-consequence code to a stricter bar than the repo average.
 - Run `/tdd-guardian:implement` to start recording red receipts; without them the separation check reports `NOT-RECORDED`, which is honest rather than failing.

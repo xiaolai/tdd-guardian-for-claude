@@ -102,7 +102,7 @@ A red that proves nothing — zero tests, missing module, dead runner — is not
 These are load-bearing. Do not soften them without stating the mechanism that makes it safe:
 
 1. **A zero-test run is a failure**, not a pass — *once the lane has ever had tests*. Green with nothing run is indistinguishable from green with everything run. Before a lane's first test it is in **bootstrap**: reported loudly on every gate run but not blocking, because a greenfield repo is not a broken one. `ever_had_tests` is a one-way ratchet, so deleting every test cannot restore bootstrap. The invariant guards against a *silent* zero-test run; nothing in bootstrap is silent.
-2. **A coverage report measuring zero lines fails.** Under the 0/0 convention it scores 100%. Skipped while a lane is in bootstrap — no tests means nothing to measure.
+2. **A coverage report measuring zero lines fails.** Under the 0/0 convention it scores 100%. Skipped only while the lanes that were meant to MEASURE something are in bootstrap — the exemption used to be global, so one brand-new lane suppressed the whole coverage gate including another lane's critical paths.
 3. **A `null` metric is not zero** — it means the format does not measure that dimension. Non-zero threshold + null = WARNING, never FAILURE.
 4. **A weighted coverage merge is reported as approximate.** Only per-line formats merge as a true union.
 5. **Freshness checks the working tree, not just commits.** Uncommitted edits invalidate a gate.

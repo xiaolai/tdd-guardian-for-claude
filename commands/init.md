@@ -66,6 +66,8 @@ Say this explicitly in the proposal rather than silently choosing it.
 
 A lane that has never discovered a test is in **bootstrap**. The gate reports `0 tests, this lane has never had any — write the first test` on every run, loudly, but does not block, and the coverage gate is skipped because there is nothing to measure.
 
+That skip is scoped to the lanes expected to produce coverage. A bootstrap lane alongside a mature one that genuinely measures something does not suppress the coverage gate — otherwise adding one empty lane would quietly disable every threshold and critical path in the project.
+
 The moment the lane discovers even one test, `ever_had_tests` is set permanently in state and the strict rule applies: a zero-test run becomes a hard failure diagnosed as a regression. The ratchet is one-way — deleting every test does not return a lane to bootstrap.
 
 This keeps the fail-loud invariant intact. What that invariant guards against is a zero-test run *silently* looking green; in bootstrap nothing is silent.
