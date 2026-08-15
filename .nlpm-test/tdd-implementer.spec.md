@@ -11,7 +11,7 @@ description: Spec for tdd-implementer — red-green-refactor for ONE work item a
 
 Scenario: "Implement WI-1 of the rate-limiter plan."
 Expected: agent fires. Writes failing tests first (red), minimal implementation (green), runs the lanes bound to `taskCompleted`, reports PASS/FAIL.
-Must contain: `## WI-1:` heading, `### Tests written`, `### Implementation`, `### Verification` with a `Lanes run:` line.
+Must contain: `## WI-1:` heading, `### Tests written`, `### Implementation`, `### Verification` with a `Lanes run:` line, `### Specification separation` with a `Verdict:` line.
 
 ### P2: dispatch from /tdd-guardian:implement WI-N
 
@@ -48,6 +48,19 @@ If verification returns FAIL, the agent:
 - MUST NOT edit the tests to make them pass (tests drive implementation, not vice versa).
 - MUST NOT move to the next work item.
 - MUST report `Status: BLOCKED` with the failing test output in `Details:`.
+
+## Red-receipt rule
+
+Between red and green the agent MUST run `receipt.js record --id WI-N`, and after green it MUST run `receipt.js verify --id WI-N`.
+
+- A non-zero exit from `record` means the red proved nothing — zero tests, missing module, dead runner. This is an environment failure: fix the runner and record again. Editing source to chase it is a spec violation.
+- Recording a receipt AFTER the code is already green is a spec violation. An unrecorded red reports as `NOT-RECORDED`, which is honest; a backdated one is a false record.
+- A `SEPARATION-BROKEN` verdict MUST be reported with the named files and a reason per file. Presenting the work item as clean over a broken verdict is a spec violation.
+- If the CLI is unavailable, the agent MUST say so and continue. Unverified is acceptable; fabricated is not.
+
+## Specification-immutability rule
+
+Adding test cases while implementing is expected and healthy. Modifying an assertion that was present at red is not: it means the implementation edited its own acceptance criteria. The agent MUST stop and state the reason rather than quietly relaxing it.
 
 ## Environment-failure rule
 

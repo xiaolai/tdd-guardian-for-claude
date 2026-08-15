@@ -247,10 +247,31 @@ function migrateState(state) {
   return migrated;
 }
 
+/**
+ * Persist gate state atomically.
+ *
+ * Temp file then rename. A partial writeFileSync leaves truncated JSON, and
+ * loadState swallows a parse error as an empty state — so an interrupted write
+ * silently resets every lane's freshness and the gate looks like a fresh install.
+ * Same fix, same reason, as saveReceipts in lib/verification.js.
+ */
 function saveState(cwd, state) {
   const file = statePath(cwd);
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(state, null, 2) + "\n");
+  const dir = path.dirname(file);
+  fs.mkdirSync(dir, { recursive: true });
+
+  const temp = path.join(dir, `.state.${process.pid}.tmp`);
+  try {
+    fs.writeFileSync(temp, JSON.stringify(state, null, 2) + "\n");
+    fs.renameSync(temp, file);
+  } catch (err) {
+    try {
+      fs.unlinkSync(temp);
+    } catch {
+      /* the temp file may never have been created */
+    }
+    throw err;
+  }
 }
 
 /**

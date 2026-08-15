@@ -620,3 +620,272 @@ test("taskcompleted: a malformed payload does not crash the hook", () => {
   const result = spawnSync(process.execPath, [TASKCOMPLETED], { input: "not json", encoding: "utf8", timeout: 30000 });
   assert.equal(result.status, 0);
 });
+
+// ---------------------------------------------------------------------------
+// TaskCompleted — critical paths
+// ---------------------------------------------------------------------------
+
+// istanbul-summary carries per-file entries, which is what criticalPaths need.
+function summaryWith(files) {
+  const entry = (covered, total) => {
+    const pct = total === 0 ? 100 : Math.round((covered / total) * 10000) / 100;
+    return { lines: { total, covered, pct }, statements: { total, covered, pct }, functions: { total, covered, pct }, branches: { total, covered, pct } };
+  };
+  const out = {};
+  let covered = 0;
+  let total = 0;
+  for (const [file, [c, t]] of Object.entries(files)) {
+    out[file] = entry(c, t);
+    covered += c;
+    total += t;
+  }
+  out.total = entry(covered, total);
+  return JSON.stringify(out);
+}
+
+function coverageWorkspace(report, extra = {}) {
+  return workspace({
+    enabled: true,
+    enforceOnTaskCompleted: true,
+    coverageThresholds: { lines: 50, functions: 50, branches: 50, statements: 50 },
+    lanes: [
+      {
+        name: "unit",
+        command: `printf '%s' ${JSON.stringify(report)} > coverage.json && echo "Tests  1 passed (1)"`,
+        gateOn: ["taskCompleted"],
+        coverage: "include",
+        coverageSummaryPath: "coverage.json",
+      },
+    ],
+    ...extra,
+  });
+}
+
+test("taskcompleted: a critical path below its threshold blocks even when the repo total passes", () => {
+  // Repo-wide: 18/20 = 90%, comfortably over the 50% bar. The payments module
+  // alone is 5/10 = 50%, under its own 100% bar. A single global threshold cannot
+  // express that difference, which is the whole reason criticalPaths exist.
+  const report = summaryWith({ "src/payments/charge.ts": [5, 10], "src/util/log.ts": [13, 10] });
+  const dir = coverageWorkspace(report, {
+    criticalPaths: [{ glob: "src/payments/**", thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 } }],
+  });
+
+  const { decision } = runHook(TASKCOMPLETED, { cwd: dir });
+  assert.equal(decision.decision, "block");
+  assert.equal(decision.reason, "Coverage gate failed");
+  assert.match(decision.hookSpecificOutput.additionalContext, /Critical-path coverage failed/);
+  assert.match(decision.hookSpecificOutput.additionalContext, /src\/payments\/\*\*/);
+});
+
+test("taskcompleted: a critical path that meets its threshold passes and is recorded", () => {
+  const report = summaryWith({ "src/payments/charge.ts": [10, 10], "src/util/log.ts": [5, 10] });
+  const dir = coverageWorkspace(report, {
+    criticalPaths: [{ glob: "src/payments/**", thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 } }],
+  });
+
+  const { decision } = runHook(TASKCOMPLETED, { cwd: dir });
+  assert.equal(decision, null, "green gate emits no decision");
+
+  const recorded = readState(dir).coverage.criticalPaths;
+  assert.equal(recorded.length, 1);
+  assert.equal(recorded[0].glob, "src/payments/**");
+  assert.equal(recorded[0].matchedFiles, 1);
+  assert.equal(recorded[0].ok, true);
+});
+
+test("taskcompleted: a criticalPaths glob that matches nothing blocks the gate", () => {
+  const report = summaryWith({ "src/util/log.ts": [10, 10] });
+  const dir = coverageWorkspace(report, { criticalPaths: [{ glob: "src/paymnets/**" }] });
+
+  const { decision } = runHook(TASKCOMPLETED, { cwd: dir });
+  assert.equal(decision.decision, "block");
+  assert.match(decision.hookSpecificOutput.additionalContext, /matched no file in the coverage report/);
+  assert.match(decision.hookSpecificOutput.additionalContext, /src\/paymnets\/\*\*/);
+  assert.equal(readState(dir).coverage.status, "FAIL");
+});
+
+// ---------------------------------------------------------------------------
+// TaskCompleted — specification / implementation separation
+// ---------------------------------------------------------------------------
+
+function writeReceipts(dir, receipts) {
+  fs.writeFileSync(path.join(dir, ".claude", "tdd-guardian", "receipts.json"), JSON.stringify({ schemaVersion: 2, receipts }, null, 2));
+}
+
+const GREEN_LANE = {
+  enabled: true,
+  enforceOnTaskCompleted: true,
+  coverageThresholds: { lines: 0, functions: 0, branches: 0, statements: 0 },
+  lanes: [{ name: "unit", command: 'echo "Tests  1 passed (1)"', gateOn: ["taskCompleted"] }],
+};
+
+test("taskcompleted: a test file edited between red and green is reported, without blocking", () => {
+  const dir = workspace(GREEN_LANE);
+  fs.mkdirSync(path.join(dir, "tests"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "tests", "a.test.js"), "expect(charge(100)).toBe(100);\n");
+
+  const verification = require("../scripts/tdd-guardian/lib/verification.js");
+  writeReceipts(dir, [
+    verification.buildReceipt({
+      id: "WI-1",
+      lane: "unit",
+      result: { status: "fail", testCounts: { failed: 1, passed: 0, skipped: 0, total: 1 } },
+      testFiles: ["tests/a.test.js"],
+      cwd: dir,
+    }),
+  ]);
+
+  // The implementation could not satisfy the spec, so the spec was relaxed.
+  fs.writeFileSync(path.join(dir, "tests", "a.test.js"), "expect(charge(100)).toBeGreaterThan(0);\n");
+
+  const { decision, stderr } = runHook(TASKCOMPLETED, { cwd: dir });
+  assert.equal(decision, null, "separation findings report; they never block");
+  assert.match(stderr, /\[HIGH\] WI-1 \(unit\)/);
+  assert.match(stderr, /tests\/a\.test\.js/);
+});
+
+test("taskcompleted: an unchanged specification is reported as held", () => {
+  const dir = workspace(GREEN_LANE);
+  fs.mkdirSync(path.join(dir, "tests"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "tests", "a.test.js"), "expect(charge(100)).toBe(100);\n");
+
+  const verification = require("../scripts/tdd-guardian/lib/verification.js");
+  writeReceipts(dir, [
+    verification.buildReceipt({
+      id: "WI-1",
+      lane: "unit",
+      result: { status: "fail", testCounts: { failed: 1, passed: 0, skipped: 0, total: 1 } },
+      testFiles: ["tests/a.test.js"],
+      cwd: dir,
+    }),
+  ]);
+
+  const { decision, stderr } = runHook(TASKCOMPLETED, { cwd: dir });
+  assert.equal(decision, null);
+  assert.match(stderr, /Specification held for WI-1/);
+});
+
+test("taskcompleted: no receipts means silence, not a violation", () => {
+  const dir = workspace(GREEN_LANE);
+  const { decision, stderr } = runHook(TASKCOMPLETED, { cwd: dir });
+  assert.equal(decision, null);
+  assert.equal(/Specification/.test(stderr), false, "absence of evidence must not be reported as evidence");
+});
+
+// ---------------------------------------------------------------------------
+// TaskCompleted — the two enforcement boundaries criticalPaths introduced
+// ---------------------------------------------------------------------------
+
+test("taskcompleted: a critical path is enforced even when every global threshold is zero", () => {
+  // The legacy-repo setup: no repo-wide bar, one strict bar on the code that
+  // matters. Deciding "is coverage wanted" from the global thresholds alone let
+  // this configuration skip the gate entirely and report success.
+  const report = summaryWith({ "src/payments/charge.ts": [5, 10] });
+  const dir = workspace({
+    enabled: true,
+    enforceOnTaskCompleted: true,
+    coverageThresholds: { lines: 0, functions: 0, branches: 0, statements: 0 },
+    criticalPaths: [{ glob: "src/payments/**", thresholds: { lines: 100 } }],
+    lanes: [
+      {
+        name: "unit",
+        command: `printf '%s' ${JSON.stringify(report)} > coverage.json && echo "Tests  1 passed (1)"`,
+        gateOn: ["taskCompleted"],
+        coverage: "include",
+        coverageSummaryPath: "coverage.json",
+      },
+    ],
+  });
+
+  const { decision } = runHook(TASKCOMPLETED, { cwd: dir });
+  assert.equal(decision.decision, "block");
+  assert.match(decision.hookSpecificOutput.additionalContext, /Critical-path coverage failed/);
+});
+
+test("taskcompleted: a per-path requireMutation runs the mutation gate", () => {
+  // Validation accepted requireMutation on a criticalPaths entry while execution
+  // checked only the top-level flag — a config that promised enforcement and
+  // silently skipped it.
+  const report = summaryWith({ "src/payments/charge.ts": [10, 10] });
+  const dir = workspace({
+    enabled: true,
+    enforceOnTaskCompleted: true,
+    coverageThresholds: { lines: 50, functions: 50, branches: 50, statements: 50 },
+    criticalPaths: [{ glob: "src/payments/**", requireMutation: true }],
+    requireMutation: false,
+    mutationCommand: "exit 3",
+    mutationGateOn: ["taskCompleted"],
+    lanes: [
+      {
+        name: "unit",
+        command: `printf '%s' ${JSON.stringify(report)} > coverage.json && echo "Tests  1 passed (1)"`,
+        gateOn: ["taskCompleted"],
+        coverage: "include",
+        coverageSummaryPath: "coverage.json",
+      },
+    ],
+  });
+
+  const { decision } = runHook(TASKCOMPLETED, { cwd: dir });
+  assert.equal(decision.decision, "block");
+  assert.match(decision.reason, /Mutation gate failed/);
+  assert.match(decision.reason, /required by criticalPaths: src\/payments\/\*\*/);
+});
+
+test("taskcompleted: an unmatched glob is recorded as failed, never as a checked path", () => {
+  const report = summaryWith({ "src/util/log.ts": [10, 10] });
+  const dir = workspace({
+    enabled: true,
+    enforceOnTaskCompleted: true,
+    coverageThresholds: { lines: 50, functions: 50, branches: 50, statements: 50 },
+    criticalPaths: [{ glob: "src/paymnets/**" }],
+    lanes: [
+      {
+        name: "unit",
+        command: `printf '%s' ${JSON.stringify(report)} > coverage.json && echo "Tests  1 passed (1)"`,
+        gateOn: ["taskCompleted"],
+        coverage: "include",
+        coverageSummaryPath: "coverage.json",
+      },
+    ],
+  });
+
+  const { decision } = runHook(TASKCOMPLETED, { cwd: dir });
+  assert.equal(decision.decision, "block");
+  const recorded = readState(dir).coverage.criticalPaths;
+  assert.equal(recorded[0].matchedFiles, 0);
+  assert.equal(recorded[0].ok, false, "a rule enforcing nothing is not a pass");
+});
+
+test("taskcompleted: a corrupt receipts store is reported, not treated as no receipts", () => {
+  const dir = workspace(GREEN_LANE);
+  fs.writeFileSync(path.join(dir, ".claude", "tdd-guardian", "receipts.json"), "{ truncated");
+
+  const { decision, stderr } = runHook(TASKCOMPLETED, { cwd: dir });
+  assert.equal(decision, null, "a bookkeeping problem must not fail an otherwise green gate");
+  assert.match(stderr, /not valid JSON/);
+});
+
+test("taskcompleted: a receipt for a lane that did not run stays open", () => {
+  const dir = workspace(GREEN_LANE);
+  fs.mkdirSync(path.join(dir, "tests"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "tests", "a.test.js"), "expect(charge(100)).toBe(100);\n");
+
+  const verification = require("../scripts/tdd-guardian/lib/verification.js");
+  writeReceipts(dir, [
+    verification.buildReceipt({
+      id: "WI-9",
+      lane: "integration", // never runs on taskCompleted in this config
+      result: { status: "fail", testCounts: { failed: 1, passed: 0, skipped: 0, total: 1 } },
+      testFiles: ["tests/a.test.js"],
+      cwd: dir,
+    }),
+  ]);
+
+  fs.writeFileSync(path.join(dir, "tests", "a.test.js"), "expect(charge(100)).toBeGreaterThan(0);\n");
+  const { decision } = runHook(TASKCOMPLETED, { cwd: dir });
+
+  assert.equal(decision, null);
+  const stored = JSON.parse(fs.readFileSync(path.join(dir, ".claude", "tdd-guardian", "receipts.json"), "utf8"));
+  assert.equal(stored.receipts[0].verdict, null, "a lane that never ran cannot settle its receipt");
+});

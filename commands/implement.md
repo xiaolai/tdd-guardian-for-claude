@@ -44,11 +44,20 @@ If either is missing, stop with a pointer to run `/tdd-guardian:plan` or `/tdd-g
 Use the `Task` tool to invoke `tdd-implementer` with:
 - The single work item's block (acceptance criteria, required tests).
 - The matching rows from the test matrix.
+- The absolute path to the red-receipt CLI: `${CLAUDE_PLUGIN_ROOT}/scripts/tdd-guardian/receipt.js`. Resolve it here and pass the resolved path — the agent runs in its own context and must not have to guess it.
 - A directive:
   - "Write the test file(s) first so they fail (red). Show the failing run."
+  - "Then record the red: `node <resolved receipt.js path> record --id WI-N`. It runs the lane, checks that the failure is a real assertion failure rather than a missing module or a zero-test run, and fingerprints the test files."
   - "Write the minimal implementation to make tests pass (green). Show the passing run."
+  - "Do NOT edit an existing assertion to make it pass. Adding cases is fine; changing a recorded one means the implementation is editing its own specification. If a recorded assertion is genuinely wrong, say so explicitly and state why."
   - "Do NOT proceed to any other work item. Do NOT commit, push, or open PRs."
   - "If tests cannot be made green, report a BLOCKED status with specific evidence."
+
+### Step 3b — Record the red, if the implementer did not
+
+If the implementer reports it could not run the receipt CLI, run it yourself between the red and green phases. A receipt recorded after the code is green certifies nothing and must not be written — say the receipt was skipped and why, rather than manufacturing one.
+
+`record` exits non-zero when the observed failure was not a genuine red (zero tests discovered, a missing module, a broken runner). That is an environment problem, not a code problem: fix the runner and record again. Do not edit source to chase it.
 
 ### Step 4 — Verification gate
 
@@ -63,6 +72,21 @@ If the work item's test matrix assigned cases to the `integration` lane, run tha
 | `no-tests` | Stop with: "Test runner reports no tests discovered. The implementer did not add tests as instructed." |
 | `coverage-missing` | Stop. The lane's coverage command or path is wrong — point at `/tdd-guardian:probe`. |
 | `runner-missing` / `runner-error` / `killed` / `timeout` | Stop with the environment-error text from run-lane.md — do NOT re-dispatch the implementer. It would edit correct code to chase a broken runner. |
+
+### Step 4b — Verify the specification did not move
+
+Once the lanes are green, run `node <resolved receipt.js path> verify --id WI-N`. It re-runs the recorded lane itself — a receipt is only judged against a lane that is demonstrably green, so verifying too early costs a lane run rather than banking a wrong verdict.
+
+| Verdict | Action |
+|---------|--------|
+| `SEPARATION-HELD` | Continue. Report it — evidence that held is worth stating. |
+| `SEPARATION-BROKEN` | Report every named file as a High finding. The work item is DONE only if the user accepts a stated reason for each changed assertion. |
+| `NOT-RECORDED` | Report "separation unverified — no red receipt". This is not a failure; the check simply had nothing to check. |
+| `PENDING` | The lane is not green yet, so there is no red-to-green transition to judge. Fix the lane, then verify again. |
+
+Adding test cases while implementing does **not** break separation — verification compares recorded lines, so an addition leaves every one of them intact. Only editing or deleting a line that was present at red is a finding.
+
+Never silently overwrite a broken verdict by re-recording the red after the fact. The receipt exists precisely because the ordering is otherwise unobservable.
 
 ### Step 5 — Persist status
 
@@ -99,6 +123,11 @@ This file is already in `.gitignore` (per `/tdd-guardian:init`).
 - Result: PASS | FAIL | no-tests | coverage-missing | runner-error
 - Details: {per lane — passed count, failed count, duration}
 - Not run: {lanes on commit/push triggers, with "run /tdd-guardian:gate <trigger>"}
+
+## Specification separation
+- Red recorded: {kind — assertion-failure | opaque-failure | skipped, with the reason if skipped}
+- Verdict: SEPARATION-HELD | SEPARATION-BROKEN | NOT-RECORDED
+- Files whose assertions changed between red and green: {none | list, each with the stated reason}
 
 ## Next step
 - On PASS: run `/tdd-guardian:implement WI-{N+1}` (or `/tdd-guardian:audit-coverage` if this was the last work item).
