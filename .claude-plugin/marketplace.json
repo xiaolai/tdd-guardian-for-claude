@@ -1,5 +1,11 @@
 {
   "name": "xiaolai",
+  "owner": {
+    "name": "xiaolai"
+  },
+  "metadata": {
+    "description": "tdd-guardian — enforces strict test-driven development with per-lane gates, by xiaolai"
+  },
   "plugins": [
     {
       "name": "tdd-guardian",
