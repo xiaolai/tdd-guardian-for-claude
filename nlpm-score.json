@@ -1,12 +1,12 @@
 {
   "score": 100,
   "max_score": 100,
-  "artifacts_scored": 33,
-  "checked_at": "2026-08-15T02:40:03+00:00",
+  "artifacts_scored": 36,
+  "checked_at": "2026-09-29T15:04:13+00:00",
   "scored_by": "nlpm:scorer",
   "nlpm_version": "1.2.5",
   "rubric": "skills/nlpm/scoring/SKILL.md v0.3.1",
-  "artifacts_sha256": "0849323aac1e1d390fbd91c6d66c2e38a5bfcedcfee1976a5e9da225f7efe18f",
-  "note": "33 scored artifacts (7 agents, 11 commands, 5 shared partials, 9 skills, CLAUDE.md). artifacts_sha256 covers 49 files. Two defects found and fixed during scoring: all 7 agents declared `allowed-tools:` (a command field) instead of `tools:`, so their documented least-privilege restriction was never in effect; and CLAUDE.md exceeded the 200-line budget. Artifacts were edited again by the post-release audit-fix pass, so this hash covers that text too. CI cannot recompute the score (it needs the nlpm scorer agent), so it verifies the hash: if that drifts, the score claim is stale.",
+  "artifacts_sha256": "cef2c0c6836be861a10837648ddb96595fa2366696d756a8e148cfddd792167e",
+  "note": "36 scored artifacts (7 agents, 11 commands, 5 shared partials, 9 skills, AGENTS.md, plugin.json, marketplace.json, hooks.json) \u2014 all 100. Re-scored after CLAUDE.md became AGENTS.md (Claude Code reads it natively), the hooks.json plugin-root path was quoted, and two stale 'Referenced by' comments in shared partials were corrected. artifacts_sha256 covers 49 files.",
   "artifacts_hashed": 49
 }

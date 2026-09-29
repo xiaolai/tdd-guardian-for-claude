@@ -3,7 +3,7 @@ description: "Shared: detect test lanes, runners, coverage tools, and e2e suites
 user-invocable: false
 ---
 <!-- Shared partial: tooling detection -->
-<!-- Referenced by: init (primary), probe, gate. Do not use standalone. -->
+<!-- Referenced by: init (primary), probe, and the init, lane-policy, and tooling-catalog skills. Do not use standalone. -->
 
 ## Purpose
 

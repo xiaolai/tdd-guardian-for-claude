@@ -1,24 +1,23 @@
 {
+  "description": "PreToolUse guards Bash commit/push commands until every gating lane has a fresh pass; TaskCompleted runs the taskCompleted lanes, merges coverage, and records per-lane gate state.",
   "hooks": {
     "PreToolUse": [
       {
-        "description": "Guards Bash tool calls; checks that every lane gating a commit or push has a fresh pass",
         "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/tdd-guardian/pretool_guard.js"
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/tdd-guardian/pretool_guard.js\""
           }
         ]
       }
     ],
     "TaskCompleted": [
       {
-        "description": "Runs the taskCompleted lanes after task completion, merges coverage, and records per-lane gate state",
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/tdd-guardian/taskcompleted_gate.js"
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/tdd-guardian/taskcompleted_gate.js\""
           }
         ]
       }

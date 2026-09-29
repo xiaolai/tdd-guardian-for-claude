@@ -25,7 +25,7 @@ import subprocess
 import sys
 
 # Everything the nlpm score covers. Keep in sync with what /nlpm:score scores.
-TRACKED = ["agents", "commands", "skills", "CLAUDE.md", ".nlpm-test"]
+TRACKED = ["agents", "commands", "skills", "AGENTS.md", ".nlpm-test"]
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCORE_FILE = ROOT / "nlpm-score.json"

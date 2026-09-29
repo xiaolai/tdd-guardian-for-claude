@@ -17,6 +17,5 @@
     "integration-testing",
     "property-testing",
     "invariants"
-  ],
-  "category": "developer-tools"
+  ]
 }

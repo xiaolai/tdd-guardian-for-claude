@@ -3,7 +3,7 @@ description: "Shared: parse mutation testing output into score + survivor list a
 user-invocable: false
 ---
 <!-- Shared partial: mutation result parser -->
-<!-- Referenced by: audit-mutation, status, workflow. Do not use standalone. -->
+<!-- Referenced by: audit-mutation, gate, and the mutation-gate skill. Do not use standalone. -->
 
 ## Purpose
 
