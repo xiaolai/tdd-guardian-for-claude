@@ -1,6 +1,6 @@
 {
   "name": "tdd-guardian",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "TDD Guardian — enforces strict test-driven development in Claude Code with per-lane gates (unit/integration/e2e/contract), specification-strength levels S1-S6 with property tooling, adversarial spec review before implementation, red receipts proving spec/implementation separation, per-path critical thresholds, CI-first tooling detection with dry-run verification, 9-format coverage merging, and mutation testing across 25+ languages",
   "author": {
     "name": "xiaolai"
