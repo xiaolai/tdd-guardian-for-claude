@@ -1,6 +1,6 @@
 ---
 name: tdd-guardian-mutation-gate
-description: Validate test strength with mutation testing and report weak assertions. Covers the Stryker family (JS/TS, .NET, Scala), PIT (JVM), Infection (PHP), mutmut and cosmic-ray (Python), go-mutesting and gremlins (Go), cargo-mutants (Rust), mutant (Ruby), and muter (Swift).
+description: "Mutation testing gate: per-language tools (Stryker, PIT, mutmut), weak assertions."
 ---
 
 # Mutation Gate

@@ -1,6 +1,6 @@
 ---
 name: lane-policy
-description: Test-level taxonomy — which behavior belongs in a unit, integration, e2e, or contract lane, how lanes bind to gate triggers, and how each lane participates in coverage. Use when designing a test matrix, configuring lanes, or deciding where a given test should live.
+description: "Test lanes (unit, integration, e2e, contract): what goes where, triggers, coverage."
 user-invocable: false
 ---
 

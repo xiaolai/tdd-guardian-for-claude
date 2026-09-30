@@ -1,6 +1,6 @@
 ---
 name: tdd-guardian-coverage-gate
-description: Enforce coverage thresholds AND test quality — coverage without behavioral assertions is meaningless.
+description: "Coverage thresholds plus test quality: coverage without behavioral assertions fails."
 ---
 
 # Coverage Gate

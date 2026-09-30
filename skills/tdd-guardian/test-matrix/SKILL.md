@@ -1,6 +1,6 @@
 ---
 name: test-matrix
-description: Build a comprehensive test matrix for changed behavior with explicit assertion strategy per case.
+description: "Test matrix for changed behavior, with an explicit assertion strategy per case."
 user-invocable: false
 ---
 

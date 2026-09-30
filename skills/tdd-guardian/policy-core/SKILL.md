@@ -1,6 +1,6 @@
 ---
 name: policy-core
-description: Global TDD governance policy. Enforces plan-first development, behavior-driven test quality, and strict completion gates.
+description: "Core TDD policy: plan-first development, assertion and spec levels, completion gates."
 user-invocable: false
 ---
 

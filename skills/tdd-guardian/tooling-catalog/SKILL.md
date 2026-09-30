@@ -1,6 +1,6 @@
 ---
 name: tooling-catalog
-description: Per-language catalog of test runners, coverage tools, coverage formats, mutation tools, and dry-run probe commands. Use when detecting a repository's test tooling or configuring a lane for any language.
+description: "Per-language test runners, coverage tools, mutation tools and dry-run probe commands."
 user-invocable: false
 ---
 
