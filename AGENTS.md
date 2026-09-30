@@ -180,7 +180,7 @@ echo '{"tool_name":"Bash","tool_input":{"command":"git commit -m wip"},"cwd":"'"
 echo '{"cwd":"'"$PWD"'"}' | node scripts/tdd-guardian/taskcompleted_gate.js
 ```
 
-Empty stdout means "no opinion" (allow). PreToolUse emits `permissionDecision: "allow"|"deny"`; TaskCompleted emits `decision: "block"` with the failure context.
+Empty stdout means "no opinion" (normal permission flow). PreToolUse emits `permissionDecision: "deny"` on a stale gate, or, with `staleGateAction: "warn"`, a `systemMessage` plus `additionalContext` and **no** permission decision — `"allow"` would bypass the user's permission rules for the commit. TaskCompleted emits `decision: "block"` with the failure context.
 
 ### CI and badges
 

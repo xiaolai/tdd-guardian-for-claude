@@ -137,7 +137,7 @@ The adversary is the only gate that runs *before* the implementation. Every othe
 
 ### Hook enforcement
 
-- **PreToolUse** (`pretool_guard.js`) — classifies each Bash command as commit-class or push-class, then checks that every lane bound to that action has a fresh pass. With `blockCommitWithoutFreshGate: true` it **denies** by default; set `staleGateAction: "warn"` to warn instead. Both are `false`/`deny` out of the box, so nothing blocks until you opt in.
+- **PreToolUse** (`pretool_guard.js`) — classifies each Bash command as commit-class or push-class, then checks that every lane bound to that action has a fresh pass. With `blockCommitWithoutFreshGate: true` it **denies** by default; set `staleGateAction: "warn"` to warn instead — the warning is shown to you and to the model, and the command then goes through your normal permission rules (the hook never auto-approves it). Both are `false`/`deny` out of the box, so nothing blocks until you opt in.
 - **TaskCompleted** (`taskcompleted_gate.js`) — runs the `taskCompleted` lanes, merges coverage, runs the mutation gate if bound, and records per-lane state.
 
 Freshness uses `gateFreshnessMinutes`, and with `smartStaleness` an expired pass stays valid while no source file has changed — checked against **both** committed changes and the working tree.
@@ -331,6 +331,8 @@ The genuinely optional additions:
 - Add a `criticalPaths` entry to hold your highest-consequence code to a stricter bar than the repo average.
 - Run `/tdd-guardian:implement` to start recording red receipts; without them the separation check reports `NOT-RECORDED`, which is honest rather than failing.
 - Re-run `/tdd-guardian:init` to be offered a mutation tool and critical-path candidates for your ecosystem.
+
+**From 0.9.x.** With `staleGateAction: "warn"`, a stale gate used to answer the commit with `permissionDecision: "allow"`, which in Claude Code skips your permission rules for that command. It now emits the warning without a permission decision, so your normal rules still decide. If you relied on the old auto-approval, add an explicit `Bash(git commit:*)` allow rule instead.
 
 > **From 0.7.2:** command names lost their redundant prefix in 0.7.3. `/tdd-guardian:tdd-guardian-init` is now `/tdd-guardian:init`.
 

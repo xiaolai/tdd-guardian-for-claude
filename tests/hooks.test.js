@@ -91,18 +91,24 @@ test("pretool: a stale gate denies the commit", () => {
   assert.equal(decision.hookSpecificOutput.permissionDecision, "deny");
   assert.match(decision.hookSpecificOutput.permissionDecisionReason, /Stale lanes:/);
   assert.match(decision.hookSpecificOutput.permissionDecisionReason, /• unit/);
-  assert.match(decision.hookSpecificOutput.permissionDecisionReason, /tdd-guardian:gate commit/);
+  assert.match(decision.hookSpecificOutput.permissionDecisionReason, /\/tdd-guardian:gate commit/);
+  assert.match(decision.hookSpecificOutput.permissionDecisionReason, /\$tdd-guardian-gate commit/);
 });
 
-test("pretool: staleGateAction warn allows with a warning instead of denying", () => {
+test("pretool: staleGateAction warn warns without deciding the permission", () => {
   const dir = workspace(
     { enabled: true, blockCommitWithoutFreshGate: true, staleGateAction: "warn", smartStaleness: false, lanes: UNIT_AND_E2E },
     { schemaVersion: 2, lanes: {} }
   );
 
   const { decision } = runHook(PRETOOL, bashPayload(dir, "git commit -m x"));
-  assert.equal(decision.hookSpecificOutput.permissionDecision, "allow");
-  assert.match(decision.hookSpecificOutput.permissionDecisionReason, /TDD Guardian warning/);
+  // "allow" would bypass the user's permission rules for the commit. A warning
+  // must leave the normal permission flow in charge, so no decision is emitted.
+  assert.equal(decision.hookSpecificOutput.permissionDecision, undefined);
+  assert.equal(decision.hookSpecificOutput.hookEventName, "PreToolUse");
+  assert.match(decision.systemMessage, /TDD Guardian warning/);
+  assert.match(decision.hookSpecificOutput.additionalContext, /TDD Guardian warning/);
+  assert.match(decision.hookSpecificOutput.additionalContext, /Stale lanes:/);
 });
 
 test("pretool: a fresh gate allows the commit", () => {

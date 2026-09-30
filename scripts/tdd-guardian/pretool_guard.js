@@ -7,31 +7,41 @@
 // `push` (typically e2e) does not have to be fresh to commit, but does to push.
 // `push` subsumes `commit`.
 //
-// Hook output schema: { permissionDecision: "allow"|"deny", permissionDecisionReason: string }
+// Hook output schema:
+//   deny → hookSpecificOutput { permissionDecision: "deny", permissionDecisionReason }
+//   warn → { systemMessage } + hookSpecificOutput { additionalContext }, with NO
+//          permissionDecision. "allow" would bypass the user's permission rules for
+//          the commit or push; a warning must leave the normal permission flow in charge.
+// Claude Code and Codex CLI both accept these fields on PreToolUse.
 
 const fs = require("fs");
 
 const configLib = require("./lib/config");
 const lanesLib = require("./lib/lanes");
 
-function respond(decision, reason) {
+function deny(reason) {
   console.log(
     JSON.stringify({
       hookSpecificOutput: {
         hookEventName: "PreToolUse",
-        permissionDecision: decision,
+        permissionDecision: "deny",
         permissionDecisionReason: reason,
       },
     })
   );
 }
 
-function deny(reason) {
-  respond("deny", reason);
-}
-
 function warn(reason) {
-  respond("allow", "⚠ TDD Guardian warning: " + reason);
+  const message = "⚠ TDD Guardian warning: " + reason;
+  console.log(
+    JSON.stringify({
+      systemMessage: message,
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        additionalContext: message,
+      },
+    })
+  );
 }
 
 function readPayload() {
@@ -67,7 +77,7 @@ function buildReason(action, freshness, config) {
 
   lines.push(
     "",
-    `Run \`/tdd-guardian:gate ${action}\` to run the required lanes, then retry.`,
+    `Run the tdd-guardian gate for ${action} (\`/tdd-guardian:gate ${action}\` in Claude Code, \`$tdd-guardian-gate ${action}\` in Codex) to run the required lanes, then retry.`,
     `To proceed without gates, set ${config.bypassEnv}=1 — only with explicit user consent.`
   );
 
