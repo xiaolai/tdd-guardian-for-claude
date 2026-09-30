@@ -1,14 +1,10 @@
 ---
 name: tdd-test-designer
 description: |
-  Design behavior-driven tests with explicit assertion strategies. Rejects wiring-only test designs.
+  Design behavior-driven tests with explicit assertion strategies — success, boundary, invalid-input, edge and concurrency cases, using real fixtures rather than mocking internal modules. Rejects wiring-only test designs. Not for writing implementation code (use tdd-implementer) or for running coverage audits (use tdd-coverage-auditor).
   <example>
   Context: The tdd-planner has produced a work item for a rate-limiter middleware that blocks requests exceeding 100 req/min per IP.
   assistant: "I'll use the tdd-test-designer to produce a concrete test matrix covering success cases, boundary conditions (exactly 100, exactly 101), invalid inputs, and concurrency behavior for the rate-limiter."
-  </example>
-  <example>
-  Context: A work item requires a CSV parser that handles malformed rows, empty files, and BOM characters.
-  assistant: "I'll dispatch the tdd-test-designer to design behavior-driven tests with real file fixtures — no mocking the fs module — covering all edge cases and specifying Level 1-5 assertions for each."
   </example>
 model: inherit
 tools: Read, Write, Grep, Glob

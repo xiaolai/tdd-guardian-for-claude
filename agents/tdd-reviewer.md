@@ -1,14 +1,10 @@
 ---
 name: tdd-reviewer
 description: |
-  Final reviewer that audits code quality, test quality (wiring vs behavior), and coverage gaps.
+  Final reviewer that audits code quality, test quality (wiring vs behavior), and coverage gaps; also use it to flag the wiring-only tests in a specific test file. Report-only. Not for fixing the tests it flags (use tdd-implementer) or for running coverage (use tdd-coverage-auditor).
   <example>
   Context: All prior gates (coverage, mutation) have passed and the implementation is complete; a final sign-off is needed before committing.
   assistant: "I'll use the tdd-reviewer to audit both code quality and test quality — checking for wiring-only tests, mocked internal modules, missing error-path coverage, and producing a severity-ordered findings report."
-  </example>
-  <example>
-  Context: A PR adding a new file upload handler has been flagged because its test file only contains toHaveBeenCalledWith assertions and no behavior verification.
-  assistant: "I'll dispatch the tdd-reviewer to classify every expect() call in the upload handler test file, flag all wiring-only tests, and identify which behavior assertions are missing before this can be approved."
   </example>
 model: inherit
 tools: Read, Grep, Glob

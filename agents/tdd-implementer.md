@@ -1,14 +1,10 @@
 ---
 name: tdd-implementer
 description: |
-  Implement planned work items in small batches with test-first discipline.
+  Implement planned work items in small batches with test-first discipline, one work item at a time (for example "implement WI-2"): failing tests first, then the minimal implementation, verified after each batch. Not for planning a feature (use tdd-planner), and not for implementing many work items in one batch.
   <example>
   Context: The tdd-planner and tdd-test-designer have both finished; there are 3 work items and a full test matrix ready for a JWT token validation module.
   assistant: "I'll use the tdd-implementer to work through each work item one at a time — writing failing tests first, then the minimal implementation to make them pass, running the test command after each batch."
-  </example>
-  <example>
-  Context: WI-2 of an ongoing TDD workflow is a database transaction rollback handler, with tests already specified in the matrix.
-  assistant: "I'll dispatch the tdd-implementer for WI-2: write the rollback handler tests (red), implement the handler (green), confirm via Bash, then report the result before moving to WI-3."
   </example>
 model: inherit
 tools: Read, Write, Edit, Bash, Grep, Glob

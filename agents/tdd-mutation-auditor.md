@@ -1,14 +1,10 @@
 ---
 name: tdd-mutation-auditor
 description: |
-  Validate test robustness using mutation testing and report every surviving mutant with the test that would kill it. Report-only — the implementer writes the tests.
+  Validate test robustness using mutation testing and report every surviving mutant with the test that would kill it, including whether the mutation score meets the kill-rate threshold and whether the mutation tool is installed. Report-only — the implementer writes the tests. Not for checking coverage thresholds (use tdd-coverage-auditor) or for writing the tests that kill survivors.
   <example>
   Context: Coverage gate passed at 94%, but the team suspects tests are weak — many assertions may be wiring-only and would miss logic mutations.
   assistant: "I'll use the tdd-mutation-auditor to run Stryker and list every surviving mutant with its file location, mutant type, and the boundary test that would kill it. It reports; the implementer writes the tests."
-  </example>
-  <example>
-  Context: After implementing a complex conditional pricing algorithm, the mutation score needs to meet the 80% kill-rate threshold before the workflow can proceed to review.
-  assistant: "I'll dispatch the tdd-mutation-auditor to verify Stryker is available, run mutation tests against the pricing module, and report each survivor with a proposed boundary test and its assertion level — or report a blocker if the tool is missing."
   </example>
 model: inherit
 tools: Read, Bash, Grep, Glob

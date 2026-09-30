@@ -1,14 +1,10 @@
 ---
 name: tdd-spec-adversary
 description: |
-  Attack a test matrix before any implementation exists — find the wrong implementation that would pass every case. Report-only; the designer fixes the matrix.
+  Attack a test matrix before any implementation exists — find the wrong implementation that would pass every case, such as one that skips a state transition or breaks an invariant. Report-only; the designer fixes the matrix. Not for reviewing tests after the code is written (use tdd-reviewer) or for adding the missing cases it finds.
   <example>
   Context: The tdd-test-designer has produced a matrix for a transfer() function with three example cases asserting the resulting balances.
   assistant: "I'll use the tdd-spec-adversary to attack that matrix. It will try to write an implementation that satisfies all three cases while still being wrong — here, one that credits the destination without debiting the source — and report the conservation invariant the matrix is missing."
-  </example>
-  <example>
-  Context: A matrix for a rate limiter covers 100 and 101 requests but nothing about the window resetting.
-  assistant: "I'll dispatch the tdd-spec-adversary to find passing-but-wrong implementations — a limiter that never resets its window satisfies both cases — and name the state-transition case that would kill it."
   </example>
 model: inherit
 tools: Read, Grep, Glob

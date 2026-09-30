@@ -1,14 +1,10 @@
 ---
 name: tdd-planner
 description: |
-  Break a request into implementation work items with explicit acceptance criteria and test targets.
+  Break a request — a new feature or a refactor — into implementation work items with explicit acceptance criteria, risks, and test targets, before any code is written. Not for implementing code (use tdd-implementer) or for coverage questions (use tdd-coverage-auditor).
   <example>
   Context: User asks to add a user authentication feature with login, logout, and session handling to an Express API.
   assistant: "I'll use the tdd-planner to break down the authentication feature into work items with acceptance criteria and required test targets for each component."
-  </example>
-  <example>
-  Context: User wants to refactor a payment processing module to support multiple currencies.
-  assistant: "I'll dispatch the tdd-planner to decompose the currency refactor into discrete work items, identify risks, and define the test targets before any code is written."
   </example>
 model: inherit
 tools: Read, Grep, Glob
