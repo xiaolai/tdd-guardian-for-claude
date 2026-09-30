@@ -2,11 +2,11 @@
   "score": 100,
   "max_score": 100,
   "artifacts_scored": 34,
-  "checked_at": "2026-09-30T07:07:25+00:00",
+  "checked_at": "2026-09-30T17:01:58+00:00",
   "scored_by": "nlpm:scorer",
-  "nlpm_version": "1.4.0",
+  "nlpm_version": "1.4.1",
   "rubric": "skills/nlpm/scoring/SKILL.md v0.4.0",
-  "artifacts_sha256": "f2178df703e5c73229a1c8debd90005441109a566ed32b911bfe1fb1b923bdda",
-  "note": "34 scored artifacts (7 agents, 11 commands, 5 shared partials, 7 skills, AGENTS.md, plugin.json, marketplace.json, hooks.json) \u2014 all 100. Re-attested for 0.9.4 under rubric v0.4.0 (revised R09): the 7 agent descriptions keep one <example> each plus a 'Not for' sentence and stay under 1,200 characters; all 7 were re-scored (100). No other artifact changed since 0.9.3. artifacts_sha256 covers 47 files.",
+  "artifacts_sha256": "b35e33eb15d891f96bd0e72655fb7c36a5f51ab8a85e4789c79d53b724cb9975",
+  "note": "34 scored artifacts (7 agents, 11 commands, 5 shared partials, 7 skills, AGENTS.md, plugin.json, marketplace.json, hooks.json) \u2014 all 100. Re-attested for 0.10.0: AGENTS.md is the only hashed artifact changed since 0.9.4 (warn-mode hook contract, Codex port pointer); nlpm:scorer 1.4.1 re-scored it 100 at 199 lines. The Codex layout under codex/ is outside the hashed set. artifacts_sha256 covers 47 files.",
   "artifacts_hashed": 47
 }

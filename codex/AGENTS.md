@@ -56,6 +56,26 @@ parse-coverage, parse-mutation). They are plain reference text read by path, not
   turn, and a blocking Stop re-prompts the model in a loop. Codex runs plugin hooks only after
   the user has reviewed and trusted them.
 
+## Maintaining this port
+
+`codex/` is hand-polished, not generated: do not re-run `build-codex.mjs --force` over it. When
+a command, agent, skill or shared partial changes, make the matching edit under `codex/`:
+commands map to `codex/skills/tdd-guardian-<command>/`, agents to
+`codex/skills/tdd-guardian-<agent without tdd->/` (hidden from implicit selection by
+`agents/openai.yaml`), skills to `codex/skills/tdd-guardian-<skill>/`, and partials to
+`codex/shared/`. `codex-config.json` holds the interface overrides the bootstrap used.
+
+- `.codex-plugin/plugin.json` sets `"commands": []` (otherwise Codex auto-migrates
+  `commands/*.md` into duplicate Claude-flavoured skills) and `"hooks": "./codex/hooks.json"`
+  (otherwise Codex loads the Claude `hooks/hooks.json`).
+- Codex sets no `${CLAUDE_PLUGIN_ROOT}` in a skill's shell, so skills resolve the plugin root
+  as three directories above their own `SKILL.md` and check each script exists before running
+  it. Claude Code's TaskCompleted hook has no Codex event and is not ported.
+- `codex/` is outside the nlpm score attestation's hashed set (`scripts/ci/nl-artifacts-hash.py`).
+- Check the port with `codex debug prompt-input` under a temporary `CODEX_HOME`: the listing must
+  show the 18 user-facing and knowledge skills as `tdd-guardian:tdd-guardian-*`, none of the
+  seven roles, and no `source-command-*` entry.
+
 ## Prerequisites
 
 Node.js 18+ and `git` on `PATH`, plus the test runners, coverage and mutation tools of the

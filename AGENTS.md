@@ -1,6 +1,6 @@
 # tdd-guardian
 
-TDD Guardian plugin for Claude Code. Enforces strict test-driven development with automated quality gates across unit, integration, e2e, and contract test lanes.
+TDD Guardian plugin for Claude Code, with a Codex CLI port in `.codex-plugin/` and `codex/` (maintenance rules: `codex/AGENTS.md`). Enforces strict test-driven development with automated quality gates across unit, integration, e2e, and contract test lanes.
 
 ## Project structure
 
@@ -50,14 +50,6 @@ skills/tdd-guardian/      7 skills
     mutation-gate/        Mutation testing
     review-gate/          Code + test quality + spec strength + change tax
 tests/                    node --test suite (no dependencies)
-.codex-plugin/plugin.json Codex manifest — "commands": [] stops Codex migrating commands/;
-                          "hooks" points at codex/hooks.json instead of the Claude hooks/hooks.json
-codex-config.json         interface overrides for the build-codex.mjs bootstrap
-codex/                    hand-polished Codex layout (see "Codex layout")
-  AGENTS.md               Codex-side notes: skill map and differences from Claude Code
-  hooks.json              PreToolUse commit/push guard only
-  shared/                 Codex copies of commands/shared/ partials, read by path
-  skills/                 25 skills: 11 commands, 7 roles (hidden), 7 knowledge skills
 ```
 
 ## Conventions
@@ -154,22 +146,6 @@ Claude Code registers a plugin command as `/<plugin-name>:<file-basename>`. Neve
 3. Add a `## Output format` section with a concrete template.
 4. Reference in `commands/workflow.md` if part of the workflow, and update `README.md`.
 5. Verify the frontmatter actually restricts: `awk '/^---$/{n++;next} n==1 && /^tools:/' agents/*.md` must print one line per agent.
-
-## Codex layout
-
-`codex/` is hand-polished, not generated: do not re-run `build-codex.mjs --force` over it. When
-a command, agent, skill or shared partial changes, make the matching edit under `codex/`:
-commands map to `codex/skills/tdd-guardian-<command>/`, agents to
-`codex/skills/tdd-guardian-<agent without tdd->/` (hidden from implicit selection by
-`agents/openai.yaml`), skills to `codex/skills/tdd-guardian-<skill>/`, and partials to
-`codex/shared/`. Codex sets no `${CLAUDE_PLUGIN_ROOT}` in a skill's shell, so skills resolve the
-plugin root as three directories above their own `SKILL.md` and check each script exists before
-running it. Claude Code's TaskCompleted hook has no Codex event and is not ported; the PreToolUse
-guard is, via `codex/hooks.json`. `codex/` is outside the nlpm score attestation's hashed set.
-
-Check the port with `codex debug prompt-input` under a temporary `CODEX_HOME`: the listing must
-show the 18 user-facing and knowledge skills as `tdd-guardian:tdd-guardian-*`, none of the seven
-roles, and no `source-command-*` entry.
 
 ## Prerequisites
 
