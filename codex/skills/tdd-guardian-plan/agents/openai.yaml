@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Guardian: Plan"
+  short_description: "Break a task into work items with acceptance criteria and test targets"
+  default_prompt: "Use $tdd-guardian-plan to plan this feature test-first."

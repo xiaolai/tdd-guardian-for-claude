@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Guardian: Review"
+  short_description: "Final review of code and test quality, report-only"
+  default_prompt: "Use $tdd-guardian-review on the current changes."

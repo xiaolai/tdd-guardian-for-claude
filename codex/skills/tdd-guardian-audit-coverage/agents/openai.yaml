@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Guardian: Audit Coverage"
+  short_description: "Run coverage lanes, merge reports, and propose tests for gaps"
+  default_prompt: "Use $tdd-guardian-audit-coverage to check coverage gates."

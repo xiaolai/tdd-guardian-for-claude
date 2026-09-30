@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Guardian: Design Tests"
+  short_description: "Design a behaviour-driven test matrix and attack it before coding"
+  default_prompt: "Use $tdd-guardian-design-tests on the latest plan."

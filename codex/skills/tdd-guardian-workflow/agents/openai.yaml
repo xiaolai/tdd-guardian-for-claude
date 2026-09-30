@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Guardian: Workflow"
+  short_description: "Plan, design tests, implement, audit and review, halting on any failed gate"
+  default_prompt: "Use $tdd-guardian-workflow to build this feature test-first."

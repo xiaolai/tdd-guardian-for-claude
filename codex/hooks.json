@@ -1,0 +1,17 @@
+{
+  "description": "PreToolUse guards Bash git commit/push until every lane gating it has a fresh pass. Claude Code's TaskCompleted gate has no Codex event; in Codex the taskCompleted lanes run through $tdd-guardian-implement and $tdd-guardian-gate.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/tdd-guardian/pretool_guard.js\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}

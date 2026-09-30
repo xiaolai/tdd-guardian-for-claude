@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Guardian: Implement"
+  short_description: "Implement one work item red-green, with a red receipt"
+  default_prompt: "Use $tdd-guardian-implement WI-1."

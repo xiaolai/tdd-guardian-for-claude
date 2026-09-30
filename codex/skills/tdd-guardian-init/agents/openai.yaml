@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Guardian: Init"
+  short_description: "Detect and verify test lanes, then write the TDD Guardian config"
+  default_prompt: "Use $tdd-guardian-init to set up TDD Guardian for this project."

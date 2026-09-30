@@ -1,0 +1,15 @@
+{
+  "skillPrefix": "tdd-guardian",
+  "interface": {
+    "displayName": "TDD Guardian",
+    "shortDescription": "Strict TDD with per-lane test gates, adversarial spec review, red receipts, coverage and mutation gates",
+    "longDescription": "Enforces test-driven development in Codex CLI. Plans work items, designs a behaviour-driven test matrix and has it attacked before any code exists, implements in small red-green batches with red receipts proving the tests failed for a real reason, then gates the result per lane (unit, integration, e2e, contract) with coverage merged across 9 report formats, per-path critical thresholds, and mutation testing across 25+ languages. A PreToolUse hook refuses git commit and push until every lane gating it has a fresh pass. Config and state live in .claude/tdd-guardian/ and are shared with the Claude Code plugin.",
+    "category": "Coding",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": [
+      "Use $tdd-guardian-init to set up TDD Guardian's test lanes for this project.",
+      "Use $tdd-guardian-workflow to build this feature test-first.",
+      "Use $tdd-guardian-gate commit to run the lanes that gate a commit."
+    ]
+  }
+}

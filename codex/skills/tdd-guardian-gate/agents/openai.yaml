@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Guardian: Gate"
+  short_description: "Run the lanes for a trigger and refresh gate freshness"
+  default_prompt: "Use $tdd-guardian-gate commit to run the lanes that gate a commit."

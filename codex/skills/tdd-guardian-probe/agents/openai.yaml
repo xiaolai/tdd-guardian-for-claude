@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Guardian: Probe"
+  short_description: "Check that every configured lane resolves, without running suites"
+  default_prompt: "Use $tdd-guardian-probe to verify the configured test lanes."

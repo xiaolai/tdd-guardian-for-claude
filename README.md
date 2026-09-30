@@ -48,6 +48,22 @@ Then install:
 
 Run `/tdd-guardian:init` inside your project. It detects your lanes, probes each one, and writes `.claude/tdd-guardian/config.json`.
 
+### Codex CLI
+
+The same repository ships a Codex layout (`.codex-plugin/` and `codex/`):
+
+```bash
+codex plugin marketplace add xiaolai/claude-plugin-marketplace
+codex plugin add tdd-guardian@xiaolai
+```
+
+In a Codex session, start with `$tdd-guardian-init`, then `$tdd-guardian-workflow` (or the
+individual `$tdd-guardian-plan`, `-design-tests`, `-implement`, `-gate`, … skills). Both tools
+run the same scripts and share `.claude/tdd-guardian/`. Codex has no `TaskCompleted` event, so
+only the commit/push guard runs as a hook (after you trust it in Codex); the `taskCompleted`
+lanes run when `$tdd-guardian-implement` or `$tdd-guardian-gate` runs them. See
+`codex/AGENTS.md` for the full list of differences.
+
 ## Commands
 
 | Command | Description |

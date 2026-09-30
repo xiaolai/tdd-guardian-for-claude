@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Guardian: Status"
+  short_description: "Read-only report of lanes, gates, receipts and work items"
+  default_prompt: "Use $tdd-guardian-status to show where this TDD run stands."

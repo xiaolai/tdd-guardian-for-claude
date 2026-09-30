@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Guardian: Audit Mutation"
+  short_description: "Run mutation testing and propose tests that kill survivors"
+  default_prompt: "Use $tdd-guardian-audit-mutation to check test strength."
