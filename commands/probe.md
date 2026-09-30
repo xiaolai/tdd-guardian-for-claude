@@ -1,19 +1,6 @@
 ---
 name: probe
-description: |
-  Dry-run every configured lane to verify its command resolves and discovers tests, without executing the suites. Read-only; runs no tests and writes no files.
-
-  <example>
-  user: /tdd-guardian:probe
-  assistant: |
-    Loading config, then running each lane's `probeCommand` (or the ecosystem default from `tooling-catalog`). For each lane I report whether the command resolves and how many tests it discovers, then flag any lane that resolves but finds nothing — a lane discovering zero tests looks configured and fails later at gate time. No suites are executed.
-  </example>
-
-  <example>
-  user: /tdd-guardian:probe e2e
-  assistant: |
-    Probing only the `e2e` lane. I run its probe command (e.g. `npx playwright test --list`), report the discovered test count, and separately verify that any `setupCommand` it declares is resolvable — without starting the services.
-  </example>
+description: Dry-run every configured lane to verify its command resolves and discovers tests, without executing the suites. Read-only; runs no tests and writes no files.
 argument-hint: "[optional lane name]"
 allowed-tools: Read, Bash, Glob, Grep
 model: inherit
@@ -29,7 +16,7 @@ A lane written from manifest inspection is a guess. `/tdd-guardian:init` probes 
 
 ### Step 1 — Load config
 
-Follow `commands/shared/load-config.md`. Stop on missing or disabled config. Surface every validation warning — they describe ways the gate can silently do nothing.
+Follow `${CLAUDE_PLUGIN_ROOT}/commands/shared/load-config.md`. Stop on missing or disabled config. Surface every validation warning — they describe ways the gate can silently do nothing.
 
 ### Step 2 — Select lanes
 
@@ -37,7 +24,7 @@ If `$ARGUMENTS` names a lane, probe only that one. Reject an unknown name by lis
 
 ### Step 3 — Resolve a probe command per lane
 
-Use the lane's `probeCommand` if set. Otherwise infer one from the lane's `command` using the probe table in `commands/shared/detect-tooling.md` and the per-ecosystem files in the `tdd-guardian:tooling-catalog` skill.
+Use the lane's `probeCommand` if set. Otherwise infer one from the lane's `command` using the probe table in `${CLAUDE_PLUGIN_ROOT}/commands/shared/detect-tooling.md` and the per-ecosystem files in the `tdd-guardian:tooling-catalog` skill.
 
 If no probe is available for that runner, mark the lane `unprobeable` and say so plainly. **Do not** substitute the real test command — this command must never run a suite.
 
@@ -116,3 +103,17 @@ Fix: correct `testDir` in `playwright.config.ts`, or change the lane command to 
 3. A lane that discovers zero tests is a finding only when the lane has had tests before. Check `ever_had_tests` in state; report `bootstrap` for a greenfield lane and `empty` for a regression, and never give the greenfield case a broken-glob diagnosis.
 4. When no probe exists for a runner, say the lane is unverified. Do not imply it was checked.
 5. A zero-lane config is a finding in itself. Report the three ways out — add a lane, install a runner and re-run init, or delete the config so the plugin goes silent — rather than telling the user to re-run the command that produced it.
+
+## Examples
+
+<example>
+user: /tdd-guardian:probe
+assistant: |
+  Loading config, then running each lane's `probeCommand` (or the ecosystem default from `tooling-catalog`). For each lane I report whether the command resolves and how many tests it discovers, then flag any lane that resolves but finds nothing — a lane discovering zero tests looks configured and fails later at gate time. No suites are executed.
+</example>
+
+<example>
+user: /tdd-guardian:probe e2e
+assistant: |
+  Probing only the `e2e` lane. I run its probe command (e.g. `npx playwright test --list`), report the discovered test count, and separately verify that any `setupCommand` it declares is resolvable — without starting the services.
+</example>

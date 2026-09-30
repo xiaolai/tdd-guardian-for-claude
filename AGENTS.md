@@ -41,7 +41,7 @@ scripts/
     receipt.js            Red-receipt CLI (record / verify / show)
     pretool_guard.js      PreToolUse hook
     taskcompleted_gate.js TaskCompleted hook
-skills/tdd-guardian/      9 skills
+skills/tdd-guardian/      7 skills
     policy-core/          Assertion hierarchy, spec strength, mock rules, change tax, gates
     lane-policy/          Test-level taxonomy
     tooling-catalog/      Per-language runners, coverage, mutation, property libs (SKILL.md + 9 references)
@@ -49,7 +49,6 @@ skills/tdd-guardian/      9 skills
     coverage-gate/        Coverage enforcement + critical paths
     mutation-gate/        Mutation testing
     review-gate/          Code + test quality + spec strength + change tax
-    init/, workflow/      Setup and orchestration
 tests/                    node --test suite (no dependencies)
 ```
 

@@ -1,7 +1,11 @@
 ---
 description: "Shared: load .claude/tdd-guardian/config.json, migrate v1 to v2, validate lanes, fail loudly if missing"
 user-invocable: false
+disable-model-invocation: true
 ---
+
+> **Plugin root:** this file is read as plain text, so `${CLAUDE_PLUGIN_ROOT}` below is not expanded, and it is unset in your shell. Before running any command here, replace it with this plugin's root: the directory two levels above this file (`<root>/commands/shared/`).
+
 <!-- Shared partial: TDD Guardian configuration loader -->
 <!-- Referenced by: plan, design-tests, implement, audit-coverage, audit-mutation, review, status, probe, gate, workflow. Do not use standalone. -->
 
@@ -12,7 +16,7 @@ Load, migrate, and validate the per-project configuration at `.claude/tdd-guardi
 The same loading, migration, and validation logic is implemented in `scripts/tdd-guardian/lib/config.js` and used by the hooks. **Prefer running it over re-implementing the checks by hand:**
 
 ```bash
-node -e "const c=require('<plugin-root>/scripts/tdd-guardian/lib/config.js');console.log(JSON.stringify(c.load(process.cwd()),null,2))"
+node -e "const c=require('${CLAUDE_PLUGIN_ROOT}/scripts/tdd-guardian/lib/config.js');console.log(JSON.stringify(c.load(process.cwd()),null,2))"
 ```
 
 That returns `{config, errors, warnings, notes, raw, exists}` in one call, already migrated and validated. Fall back to the manual steps below only when the plugin root is not resolvable.

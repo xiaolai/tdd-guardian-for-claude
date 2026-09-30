@@ -1,19 +1,6 @@
 ---
 name: audit-mutation
-description: |
-  Dispatch the tdd-mutation-auditor agent to run mutation testing and list surviving mutants. Skips cleanly if `requireMutation=false` or the tool is not installed.
-
-  <example>
-  user: /tdd-guardian:audit-mutation
-  assistant: |
-    Loading config. Since `requireMutation=true` and `mutationCommand=npx stryker run`, I dispatch the tdd-mutation-auditor. It verifies Stryker is installed, runs it, parses `reports/mutation/mutation.json`, lists surviving mutants with file:line + mutator type, and proposes boundary tests to kill each one. Returns PASS/FAIL/SKIPPED.
-  </example>
-
-  <example>
-  user: /tdd-guardian:audit-mutation
-  assistant: |
-    `requireMutation=false` in config. I respond with: "Mutation gate disabled (requireMutation=false). To enable, run /tdd-guardian:init or edit .claude/tdd-guardian/config.json." and stop — no dispatch, no tool install prompts.
-  </example>
+description: Dispatch the tdd-mutation-auditor agent to run mutation testing and list surviving mutants. Skips cleanly if `requireMutation=false` or the tool is not installed.
 argument-hint: ""
 allowed-tools: Read, Bash, Glob, Grep, Task
 model: inherit
@@ -25,7 +12,7 @@ Dispatch the `tdd-mutation-auditor` agent.
 
 ### Step 1 — Load config
 
-Follow `commands/shared/load-config.md`.
+Follow `${CLAUDE_PLUGIN_ROOT}/commands/shared/load-config.md`.
 
 ### Step 2 — Enabled check
 
@@ -70,7 +57,7 @@ Do NOT proceed with the auditor when the tool is absent.
 Use the `Task` tool to invoke `tdd-mutation-auditor` with:
 - The tool name detected in step 3.
 - The configured `mutationCommand`.
-- A directive: "Run the command. Parse the output via `commands/shared/parse-mutation.md`. List surviving mutants with file:line, original/replacement, and a boundary-test fix for each. Do NOT silently ignore mutants — equivalent mutants must be declared explicitly in the report."
+- A directive: "Run the command. Parse the output via `${CLAUDE_PLUGIN_ROOT}/commands/shared/parse-mutation.md`. List surviving mutants with file:line, original/replacement, and a boundary-test fix for each. Do NOT silently ignore mutants — equivalent mutants must be declared explicitly in the report."
 
 ### Step 5 — Persist result
 
@@ -118,3 +105,17 @@ Write the auditor's report to `.claude/tdd-guardian/mutation-{YYYYMMDD-HHMMSS}.m
 - Output: mutation report file + normalized summary in `state.json`.
 - Side effects: runs the mutation command (may be SLOW — minutes to hours).
 - Failure modes: disabled → clean skip; tool missing → install hint + stop; runner error → stop with evidence.
+
+## Examples
+
+<example>
+user: /tdd-guardian:audit-mutation
+assistant: |
+  Loading config. Since `requireMutation=true` and `mutationCommand=npx stryker run`, I dispatch the tdd-mutation-auditor. It verifies Stryker is installed, runs it, parses `reports/mutation/mutation.json`, lists surviving mutants with file:line + mutator type, and proposes boundary tests to kill each one. Returns PASS/FAIL/SKIPPED.
+</example>
+
+<example>
+user: /tdd-guardian:audit-mutation
+assistant: |
+  `requireMutation=false` in config. I respond with: "Mutation gate disabled (requireMutation=false). To enable, run /tdd-guardian:init or edit .claude/tdd-guardian/config.json." and stop — no dispatch, no tool install prompts.
+</example>

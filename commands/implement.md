@@ -1,31 +1,18 @@
 ---
 name: implement
-description: |
-  Dispatch the tdd-implementer agent for ONE work item — red, green, refactor — then verify with the project's test command.
-
-  <example>
-  user: /tdd-guardian:implement WI-1
-  assistant: |
-    Loading the most recent plan and test matrix, locating WI-1, then dispatching the tdd-implementer. It will write the failing tests first (red), add the minimal implementation (green), then verify against the `taskCompleted` lanes — the fast inner loop — and stop without touching the next work item. Slower `commit` and `push` lanes are named but not run; `/tdd-guardian:gate` handles those. If verification fails, it reports the blocker and I stop the workflow.
-  </example>
-
-  <example>
-  user: /tdd-guardian:implement
-  assistant: |
-    $ARGUMENTS is empty. I will ask which work item to implement — listing the ids from the most recent plan file so the user can pick one. I will NOT iterate through all work items in a single invocation of this command.
-  </example>
+description: Dispatch the tdd-implementer agent for ONE work item — red, green, refactor — then verify with the project's test command.
 argument-hint: "<work-item id, e.g. WI-1>"
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 model: inherit
 ---
 
-Dispatch the `tdd-implementer` agent for a single work item, then verify via `commands/shared/run-lane.md`.
+Dispatch the `tdd-implementer` agent for a single work item, then verify via `${CLAUDE_PLUGIN_ROOT}/commands/shared/run-lane.md`.
 
 ## Steps
 
 ### Step 1 — Load config
 
-Follow `commands/shared/load-config.md`.
+Follow `${CLAUDE_PLUGIN_ROOT}/commands/shared/load-config.md`.
 
 ### Step 2 — Resolve work item, plan, and matrix
 
@@ -61,7 +48,7 @@ If the implementer reports it could not run the receipt CLI, run it yourself bet
 
 ### Step 4 — Verification gate
 
-After the implementer reports completion, invoke `commands/shared/run-lane.md` for the lanes bound to `taskCompleted` — the fast inner loop. Do NOT run `commit` or `push` lanes here; verifying one work item against a browser suite is the wrong trade, and `/tdd-guardian:gate` exists for that.
+After the implementer reports completion, invoke `${CLAUDE_PLUGIN_ROOT}/commands/shared/run-lane.md` for the lanes bound to `taskCompleted` — the fast inner loop. Do NOT run `commit` or `push` lanes here; verifying one work item against a browser suite is the wrong trade, and `/tdd-guardian:gate` exists for that.
 
 If the work item's test matrix assigned cases to the `integration` lane, run that lane too and say that you did.
 
@@ -141,3 +128,17 @@ This file is already in `.gitignore` (per `/tdd-guardian:init`).
 - Output: source + test file edits for that single work item, plus a verification result.
 - Side effects: writes source/test files, updates `.claude/tdd-guardian/state.json`. Never commits.
 - Failure modes: verification failure leaves the work item in `FAILED-VERIFICATION` state so the workflow command can decide whether to retry.
+
+## Examples
+
+<example>
+user: /tdd-guardian:implement WI-1
+assistant: |
+  Loading the most recent plan and test matrix, locating WI-1, then dispatching the tdd-implementer. It will write the failing tests first (red), add the minimal implementation (green), then verify against the `taskCompleted` lanes — the fast inner loop — and stop without touching the next work item. Slower `commit` and `push` lanes are named but not run; `/tdd-guardian:gate` handles those. If verification fails, it reports the blocker and I stop the workflow.
+</example>
+
+<example>
+user: /tdd-guardian:implement
+assistant: |
+  \$ARGUMENTS is empty. I will ask which work item to implement — listing the ids from the most recent plan file so the user can pick one. I will NOT iterate through all work items in a single invocation of this command.
+</example>

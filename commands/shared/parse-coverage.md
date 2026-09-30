@@ -1,7 +1,11 @@
 ---
 description: "Shared: parse and merge coverage across 9 formats — Istanbul, coverage.py, LCOV, Cobertura, JaCoCo, Clover, go-cover, SimpleCov"
 user-invocable: false
+disable-model-invocation: true
 ---
+
+> **Plugin root:** this file is read as plain text, so `${CLAUDE_PLUGIN_ROOT}` below is not expanded, and it is unset in your shell. Before running any command here, replace it with this plugin's root: the directory two levels above this file (`<root>/commands/shared/`).
+
 <!-- Shared partial: coverage parser -->
 <!-- Referenced by: audit-coverage, status, gate, workflow. Do not use standalone. -->
 
@@ -13,7 +17,7 @@ This is implemented in `scripts/tdd-guardian/lib/coverage.js` and covered by `te
 
 ```bash
 node -e "
-const c=require('<plugin-root>/scripts/tdd-guardian/lib/coverage.js');
+const c=require('${CLAUDE_PLUGIN_ROOT}/scripts/tdd-guardian/lib/coverage.js');
 const r=['<path1>','<path2>'].map(p=>c.parseFile(p,process.cwd()));
 const errs=r.filter(x=>x.error).map(x=>x.error);
 if(errs.length){console.error(errs.join('\n'));process.exit(1)}

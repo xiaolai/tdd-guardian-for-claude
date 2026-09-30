@@ -2,3 +2,6 @@
 
 # Audit-run scratch from cc-suite; the durable decisions live in AGENTS.md
 .cc-suite/
+
+# Python bytecode (scripts/ci/nl-artifacts-hash.py)
+__pycache__/

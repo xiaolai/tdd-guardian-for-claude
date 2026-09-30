@@ -248,8 +248,6 @@ One executable sits alongside the hooks: `scripts/tdd-guardian/receipt.js`, the 
 | coverage-gate | Coverage thresholds, critical paths, multi-lane merge, test-quality scan, v8 ignore audit |
 | mutation-gate | Per-language tool reference, operator catalog, surviving-mutant patterns |
 | review-gate | Final-review rubric: lane audit, specification strength, change tax |
-| init | Initialization checks |
-| workflow | Workflow orchestration reference |
 
 ### Hooks
 

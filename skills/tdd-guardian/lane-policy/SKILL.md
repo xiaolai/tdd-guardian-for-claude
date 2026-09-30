@@ -1,6 +1,7 @@
 ---
 name: lane-policy
 description: Test-level taxonomy — which behavior belongs in a unit, integration, e2e, or contract lane, how lanes bind to gate triggers, and how each lane participates in coverage. Use when designing a test matrix, configuring lanes, or deciding where a given test should live.
+user-invocable: false
 ---
 
 # Lane Policy
@@ -106,7 +107,7 @@ An e2e suite that walks the whole application does not make the unit lane's unco
 | An integration lane that mocks the database | It is a unit lane wearing a costume | Use a real DB or testcontainers |
 | `optional: true` to silence a red suite | Hides a real defect behind a flag | Fix the suite |
 | A lane per package in a monorepo with a workspace runner | N× the setup cost, N× the config to maintain | One aggregate command |
-| Retries as the fix for flakiness | Converts a signal into noise | Fix the race; see `tooling-catalog/references/e2e.md` |
+| Retries as the fix for flakiness | Converts a signal into noise | Fix the race; see `${CLAUDE_PLUGIN_ROOT}/skills/tdd-guardian/tooling-catalog/references/e2e.md` |
 | Thresholds set per lane | Recreates the coupling lanes remove | Threshold the merged total |
 
 ## Minimum viable configuration
@@ -134,4 +135,4 @@ Does NOT cover:
 | How strongly does this test verify anything? | `tdd-guardian:policy-core` |
 | What command runs this lane in language X? | `tdd-guardian:tooling-catalog` |
 | How are multi-lane coverage reports merged? | `tdd-guardian:coverage-gate` |
-| How is a lane detected and written to config? | `commands/shared/detect-tooling.md` |
+| How is a lane detected and written to config? | `${CLAUDE_PLUGIN_ROOT}/commands/shared/detect-tooling.md` |

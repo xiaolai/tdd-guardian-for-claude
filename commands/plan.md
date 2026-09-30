@@ -1,19 +1,6 @@
 ---
 name: plan
-description: |
-  Dispatch the tdd-planner agent to break a task into work items, acceptance criteria, and required test targets. Does NOT write code or tests.
-
-  <example>
-  user: /tdd-guardian:plan add a rate limiter to the /login endpoint that blocks after 5 failed attempts in 10 minutes
-  assistant: |
-    Dispatching the tdd-planner to decompose this into work items. It will return a markdown plan with WI-1..N entries, acceptance criteria checklists, required tests per item with assertion levels, risks/assumptions, and a "Deferred / Out of Scope" section. I will not write any code or tests in this step — the plan file is the sole deliverable.
-  </example>
-
-  <example>
-  user: /tdd-guardian:plan
-  assistant: |
-    $ARGUMENTS is empty. I will use AskUserQuestion to elicit a plain-language task description first. Once the user answers, I will dispatch the tdd-planner with that description and return its plan without writing code.
-  </example>
+description: Dispatch the tdd-planner agent to break a task into work items, acceptance criteria, and required test targets. Does NOT write code or tests.
 argument-hint: "<task description>"
 allowed-tools: Read, Write, Glob, Grep, Task, AskUserQuestion
 model: inherit
@@ -25,7 +12,7 @@ Dispatch the `tdd-planner` agent for a TDD task.
 
 ### Step 1 — Load config
 
-Follow `commands/shared/load-config.md`. If the config is missing or `enabled=false`, stop with the message defined there.
+Follow `${CLAUDE_PLUGIN_ROOT}/commands/shared/load-config.md`. If the config is missing or `enabled=false`, stop with the message defined there.
 
 ### Step 2 — Validate input
 
@@ -77,3 +64,17 @@ Run `/tdd-guardian:design-tests .claude/tdd-guardian/plan-{timestamp}.md` to pro
 - Failure modes:
   - Config missing → stop with init instructions (via `load-config.md`).
   - Planner agent unavailable → surface the error and stop; do NOT attempt to plan inline.
+
+## Examples
+
+<example>
+user: /tdd-guardian:plan add a rate limiter to the /login endpoint that blocks after 5 failed attempts in 10 minutes
+assistant: |
+  Dispatching the tdd-planner to decompose this into work items. It will return a markdown plan with WI-1..N entries, acceptance criteria checklists, required tests per item with assertion levels, risks/assumptions, and a "Deferred / Out of Scope" section. I will not write any code or tests in this step — the plan file is the sole deliverable.
+</example>
+
+<example>
+user: /tdd-guardian:plan
+assistant: |
+  \$ARGUMENTS is empty. I will use AskUserQuestion to elicit a plain-language task description first. Once the user answers, I will dispatch the tdd-planner with that description and return its plan without writing code.
+</example>

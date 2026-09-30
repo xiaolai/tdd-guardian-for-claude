@@ -1,19 +1,6 @@
 ---
 name: status
-description: |
-  Read-only status report — shows last-run coverage %, mutation score, review verdict, and per-work-item state from `.claude/tdd-guardian/state.json`. Does NOT run any agent, test, or gate.
-
-  <example>
-  user: /tdd-guardian:status
-  assistant: |
-    Reading `.claude/tdd-guardian/state.json` and the most recent `plan-*.md`, `tests-*.md`, `coverage-*.md`, `mutation-*.md`, `review-*.md` files. I render a summary table: last coverage run (timestamp + verdict + totals), last mutation run (score + survivors), last review (severity counts + verdict), and per-work-item state (DONE / BLOCKED / FAILED-VERIFICATION / not-started). No agents are dispatched; no tests or coverage commands are run.
-  </example>
-
-  <example>
-  user: /tdd-guardian:status
-  assistant: |
-    `.claude/tdd-guardian/state.json` does not exist. I respond with: "No TDD Guardian runs recorded yet. Start with /tdd-guardian:plan or /tdd-guardian:workflow." and stop.
-  </example>
+description: Read-only status report — shows last-run coverage %, mutation score, review verdict, and per-work-item state from `.claude/tdd-guardian/state.json`. Does NOT run any agent, test, or gate.
 argument-hint: ""
 allowed-tools: Read, Glob, Bash
 model: inherit
@@ -29,7 +16,7 @@ lane command from here — that is `/tdd-guardian:gate`.
 
 ### Step 1 — Load config (soft)
 
-Unlike other commands, DO NOT hard-fail on missing config — the user may be invoking `/tdd-guardian:status` to diagnose exactly that. Try `commands/shared/load-config.md`, but if it stops, downgrade to: `Config missing or disabled. Run /tdd-guardian:init to initialize.` and continue rendering whatever state exists.
+Unlike other commands, DO NOT hard-fail on missing config — the user may be invoking `/tdd-guardian:status` to diagnose exactly that. Try `${CLAUDE_PLUGIN_ROOT}/commands/shared/load-config.md`, but if it stops, downgrade to: `Config missing or disabled. Run /tdd-guardian:init to initialize.` and continue rendering whatever state exists.
 
 ### Step 2 — Read state
 
@@ -203,5 +190,19 @@ Omit the section when there are none — never suppress them when there are.}
 
 - Input: none.
 - Output: one markdown status report printed to the user.
-- Side effects: NONE. No files written, no agents dispatched, no shell commands run.
+- Side effects: none. No files written, no agents dispatched, no lane commands run; the only shell commands are the read-only git queries used for freshness.
 - Failure modes: missing config → soft warning + continue; missing state.json → short "no runs yet" message.
+
+## Examples
+
+<example>
+user: /tdd-guardian:status
+assistant: |
+  Reading `.claude/tdd-guardian/state.json` and the most recent `plan-*.md`, `tests-*.md`, `coverage-*.md`, `mutation-*.md`, `review-*.md` files. I render a summary table: last coverage run (timestamp + verdict + totals), last mutation run (score + survivors), last review (severity counts + verdict), and per-work-item state (DONE / BLOCKED / FAILED-VERIFICATION / not-started). No agents are dispatched; no tests or coverage commands are run.
+</example>
+
+<example>
+user: /tdd-guardian:status
+assistant: |
+  `.claude/tdd-guardian/state.json` does not exist. I respond with: "No TDD Guardian runs recorded yet. Start with /tdd-guardian:plan or /tdd-guardian:workflow." and stop.
+</example>

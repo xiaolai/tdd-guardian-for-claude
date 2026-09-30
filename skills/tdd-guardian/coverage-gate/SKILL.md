@@ -1,6 +1,7 @@
 ---
 name: coverage-gate
 description: Enforce coverage thresholds AND test quality — coverage without behavioral assertions is meaningless.
+user-invocable: false
 ---
 
 # Coverage Gate
@@ -166,7 +167,7 @@ Does NOT cover:
 
 | Question | Where |
 |----------|-------|
-| How is each report format parsed? | `commands/shared/parse-coverage.md` |
+| How is each report format parsed? | `${CLAUDE_PLUGIN_ROOT}/commands/shared/parse-coverage.md` |
 | Which lanes contribute coverage, and why? | `tdd-guardian:lane-policy` |
 | What coverage tool does language X use? | `tdd-guardian:tooling-catalog` |
 | How is test strength measured beyond coverage? | `tdd-guardian:mutation-gate` |

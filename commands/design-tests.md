@@ -1,19 +1,6 @@
 ---
 name: design-tests
-description: |
-  Dispatch the tdd-test-designer agent to produce a concrete behavior-driven test matrix for a plan. Rejects wiring-only designs. Does NOT write implementation code.
-
-  <example>
-  user: /tdd-guardian:design-tests .claude/tdd-guardian/plan-20260424-094500.md
-  assistant: |
-    Reading the plan file, then dispatching the tdd-test-designer for each work item. The output is a test matrix per unit — success cases, boundaries, guard clauses, failure paths, state transitions, async/concurrency cases — each with an assertion level (Level 1-5 per policy-core), a specification level (S1-S6), and mock boundary justification. The tdd-spec-adversary then attacks the finished matrix, looking for a wrong implementation that would pass every case. No implementation code is written.
-  </example>
-
-  <example>
-  user: /tdd-guardian:design-tests
-  assistant: |
-    $ARGUMENTS is empty. I will look for the most recent plan under `.claude/tdd-guardian/plan-*.md`. If none exists, I will ask the user to run `/tdd-guardian:plan` first, or to paste the plan path/content inline.
-  </example>
+description: Dispatch the tdd-test-designer agent to produce a concrete behavior-driven test matrix for a plan. Rejects wiring-only designs. Does NOT write implementation code.
 argument-hint: "<path to plan markdown>"
 allowed-tools: Read, Write, Edit, Glob, Grep, Task, AskUserQuestion
 model: inherit
@@ -25,7 +12,7 @@ Dispatch the `tdd-test-designer` agent to produce a test matrix for a generated 
 
 ### Step 1 — Load config
 
-Follow `commands/shared/load-config.md`. Stop on missing/disabled config.
+Follow `${CLAUDE_PLUGIN_ROOT}/commands/shared/load-config.md`. Stop on missing/disabled config.
 
 ### Step 2 — Resolve the plan file
 
@@ -96,3 +83,17 @@ Run `/tdd-guardian:implement WI-1` (or any work-item id from the plan) to begin 
 - Output: a test matrix markdown file, plus an attack report when gaps remain open.
 - Side effects: writes files under `.claude/tdd-guardian/` only. No source or test files are changed.
 - Failure modes: no plan → stop; wiring-only matrix after retries → stop with manual-review prompt; adversary gaps still open after 2 rounds → report them explicitly and hand the decision to the user.
+
+## Examples
+
+<example>
+user: /tdd-guardian:design-tests .claude/tdd-guardian/plan-20260424-094500.md
+assistant: |
+  Reading the plan file, then dispatching the tdd-test-designer for each work item. The output is a test matrix per unit — success cases, boundaries, guard clauses, failure paths, state transitions, async/concurrency cases — each with an assertion level (Level 1-5 per policy-core), a specification level (S1-S6), and mock boundary justification. The tdd-spec-adversary then attacks the finished matrix, looking for a wrong implementation that would pass every case. No implementation code is written.
+</example>
+
+<example>
+user: /tdd-guardian:design-tests
+assistant: |
+  \$ARGUMENTS is empty. I will look for the most recent plan under `.claude/tdd-guardian/plan-*.md`. If none exists, I will ask the user to run `/tdd-guardian:plan` first, or to paste the plan path/content inline.
+</example>

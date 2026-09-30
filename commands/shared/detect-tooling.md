@@ -1,9 +1,10 @@
 ---
 description: "Shared: detect test lanes, runners, coverage tools, and e2e suites from CI config, manifests, and test topology — then verify each by dry-run probe"
 user-invocable: false
+disable-model-invocation: true
 ---
 <!-- Shared partial: tooling detection -->
-<!-- Referenced by: init (primary), probe, and the init, lane-policy, and tooling-catalog skills. Do not use standalone. -->
+<!-- Referenced by: init (primary), probe, and the lane-policy and tooling-catalog skills. Do not use standalone. -->
 
 ## Purpose
 

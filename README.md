@@ -363,7 +363,6 @@ skills/tdd-guardian/
   coverage-gate/               Coverage enforcement
   mutation-gate/               Mutation testing
   review-gate/                 Code + test quality review
-  init/, workflow/             Setup and orchestration
 tests/                         node --test suite for the libs and hooks
 ```
 

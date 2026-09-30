@@ -17,5 +17,8 @@
     "integration-testing",
     "property-testing",
     "invariants"
+  ],
+  "skills": [
+    "./skills/tdd-guardian"
   ]
 }

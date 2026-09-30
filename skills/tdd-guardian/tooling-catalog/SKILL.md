@@ -1,11 +1,12 @@
 ---
 name: tooling-catalog
 description: Per-language catalog of test runners, coverage tools, coverage formats, mutation tools, and dry-run probe commands. Use when detecting a repository's test tooling or configuring a lane for any language.
+user-invocable: false
 ---
 
 # Tooling Catalog
 
-Reference data for configuring TDD Guardian lanes in any language. The detection *method* lives in `commands/shared/detect-tooling.md`; this skill holds the *facts* it needs.
+Reference data for configuring TDD Guardian lanes in any language. The detection *method* lives in `${CLAUDE_PLUGIN_ROOT}/commands/shared/detect-tooling.md`; this skill holds the *facts* it needs.
 
 **Read the index below, identify the ecosystem, then read only that reference file.** Loading the whole catalog wastes context — each file is self-contained.
 
@@ -147,7 +148,7 @@ Does NOT cover:
 
 | Question | Where |
 |----------|-------|
-| How do I detect which of these a repo uses? | `commands/shared/detect-tooling.md` |
+| How do I detect which of these a repo uses? | `${CLAUDE_PLUGIN_ROOT}/commands/shared/detect-tooling.md` |
 | Which tier should this suite gate? | `tdd-guardian:lane-policy` |
 | How are thresholds enforced against the report? | `tdd-guardian:coverage-gate` |
-| How is the report parsed and merged? | `commands/shared/parse-coverage.md` |
+| How is the report parsed and merged? | `${CLAUDE_PLUGIN_ROOT}/commands/shared/parse-coverage.md` |

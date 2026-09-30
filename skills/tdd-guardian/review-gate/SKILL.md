@@ -1,6 +1,7 @@
 ---
 name: review-gate
 description: Produce findings-first code review with severity ordering, test-gap findings, and test-quality audit.
+user-invocable: false
 ---
 
 # Review Gate

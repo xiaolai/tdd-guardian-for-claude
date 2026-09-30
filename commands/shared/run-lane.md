@@ -1,7 +1,11 @@
 ---
 description: "Shared: execute one lane (setup, command, coverage report, teardown) and classify the outcome, distinguishing runner failure from test failure"
 user-invocable: false
+disable-model-invocation: true
 ---
+
+> **Plugin root:** this file is read as plain text, so `${CLAUDE_PLUGIN_ROOT}` below is not expanded, and it is unset in your shell. Before running any command here, replace it with this plugin's root: the directory two levels above this file (`<root>/commands/shared/`).
+
 <!-- Shared partial: lane execution wrapper -->
 <!-- Referenced by: implement, audit-coverage, gate, workflow. Do not use standalone. -->
 
@@ -13,8 +17,8 @@ The same logic is implemented in `scripts/tdd-guardian/lib/lanes.js` (`runLane`)
 
 ```bash
 node -e "
-const {load}=require('<plugin-root>/scripts/tdd-guardian/lib/config.js');
-const {runLane,describeResult}=require('<plugin-root>/scripts/tdd-guardian/lib/lanes.js');
+const {load}=require('${CLAUDE_PLUGIN_ROOT}/scripts/tdd-guardian/lib/config.js');
+const {runLane,describeResult}=require('${CLAUDE_PLUGIN_ROOT}/scripts/tdd-guardian/lib/lanes.js');
 const {config}=load(process.cwd());
 const lane=config.lanes.find(l=>l.name==='<lane>');
 console.log(JSON.stringify(runLane(lane,process.cwd()),null,2));
@@ -91,7 +95,7 @@ The ratchet is one-way. Diagnose the two differently: telling a brand-new projec
 ### Step 7 — Coverage (lanes with `coverage: "include"`)
 
 1. If `coverageReportCommand` is set, run it now. A failure is `phase: "coverage-report"`.
-2. Read `coverageSummaryPath` and parse it per `commands/shared/parse-coverage.md`.
+2. Read `coverageSummaryPath` and parse it per `${CLAUDE_PLUGIN_ROOT}/commands/shared/parse-coverage.md`.
 3. A missing or unparseable report fails the lane with status `coverage-missing` — never treat it as zero coverage, and never skip the check.
 
 ### Step 8 — Teardown

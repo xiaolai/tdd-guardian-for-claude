@@ -1,6 +1,7 @@
 ---
 name: mutation-gate
 description: Validate test strength with mutation testing and report weak assertions. Covers the Stryker family (JS/TS, .NET, Scala), PIT (JVM), Infection (PHP), mutmut and cosmic-ray (Python), go-mutesting and gremlins (Go), cargo-mutants (Rust), mutant (Ruby), and muter (Swift).
+user-invocable: false
 ---
 
 # Mutation Gate
@@ -33,7 +34,7 @@ Mutation testing answers the question coverage can't: "would a buggy version of 
 
 **PIT is the strongest mutation tool in any ecosystem** — if the project is JVM, prefer it over anything else here.
 
-Every tool above is parsed by `commands/shared/parse-mutation.md`. Stryker, Stryker.NET, and stryker4s share one schema (mutation-testing-elements), so a tool not on this list is still supported if it can emit that format — configure that reporter rather than asking for a new parser.
+Every tool above is parsed by `${CLAUDE_PLUGIN_ROOT}/commands/shared/parse-mutation.md`. Stryker, Stryker.NET, and stryker4s share one schema (mutation-testing-elements), so a tool not on this list is still supported if it can emit that format — configure that reporter rather than asking for a new parser.
 
 Ecosystems with no mature mutation tool — Elixir (muzak is limited/commercial), Erlang, Haskell (MuCheck is unmaintained), Dart (`mutation_test` is immature) — should leave `requireMutation: false`. That is a fact about the ecosystem, not a gap to paper over; rely on the assertion-hierarchy rules in `policy-core` instead.
 

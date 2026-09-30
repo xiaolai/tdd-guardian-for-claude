@@ -1,21 +1,8 @@
 ---
 name: review
-description: |
-  Dispatch the tdd-reviewer agent for a final code + test-quality review. Classifies every expect() call as behavior vs wiring, flags mocked internal modules, and reports missing tests.
-
-  <example>
-  user: /tdd-guardian:review
-  assistant: |
-    Dispatching the tdd-reviewer. It reads the changed source and test files, classifies every `expect()` assertion as Level 1-5 (behavior) or Level 6-7 (wiring) per policy-core, flags wiring-only tests, mocked internal modules, security-via-mock-args anti-patterns, and missing error-path coverage. Output is a severity-ordered findings report.
-  </example>
-
-  <example>
-  user: /tdd-guardian:review src/upload.ts
-  assistant: |
-    Scoping the reviewer to `src/upload.ts` and its sibling test file. The reviewer still applies the full test-quality audit — flagging wiring-only tests in that scope with High severity — but does not traverse the rest of the repo.
-  </example>
+description: Dispatch the tdd-reviewer agent for a final code + test-quality review. Classifies every expect() call as behavior vs wiring, flags mocked internal modules, and reports missing tests.
 argument-hint: "[optional file or directory to scope the review]"
-allowed-tools: Read, Glob, Grep, Task
+allowed-tools: Read, Write, Glob, Grep, Bash, Task
 model: inherit
 ---
 
@@ -25,7 +12,7 @@ Dispatch the `tdd-reviewer` agent for the final gate.
 
 ### Step 1 — Load config
 
-Follow `commands/shared/load-config.md`.
+Follow `${CLAUDE_PLUGIN_ROOT}/commands/shared/load-config.md`.
 
 ### Step 2 — Determine scope
 
@@ -92,5 +79,19 @@ Write the reviewer's output to `.claude/tdd-guardian/review-{YYYYMMDD-HHMMSS}.md
 
 - Input: optional scope hint (path or nothing for diff).
 - Output: review report file + findings summary in `state.json`.
-- Side effects: reads only. No source or test files are modified.
+- Side effects: runs read-only `git diff` queries to determine scope; writes the review report and updates `.claude/tdd-guardian/state.json`. No source or test files are modified.
 - Failure modes: empty scope → stop; reviewer unavailable → surface error and stop (no inline review).
+
+## Examples
+
+<example>
+user: /tdd-guardian:review
+assistant: |
+  Dispatching the tdd-reviewer. It reads the changed source and test files, classifies every `expect()` assertion as Level 1-5 (behavior) or Level 6-7 (wiring) per policy-core, flags wiring-only tests, mocked internal modules, security-via-mock-args anti-patterns, and missing error-path coverage. Output is a severity-ordered findings report.
+</example>
+
+<example>
+user: /tdd-guardian:review src/upload.ts
+assistant: |
+  Scoping the reviewer to `src/upload.ts` and its sibling test file. The reviewer still applies the full test-quality audit — flagging wiring-only tests in that scope with High severity — but does not traverse the rest of the repo.
+</example>

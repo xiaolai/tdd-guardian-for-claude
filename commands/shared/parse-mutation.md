@@ -1,6 +1,7 @@
 ---
 description: "Shared: parse mutation testing output into score + survivor list across the Stryker family, PIT, Infection, mutmut, go-mutesting, cargo-mutants, and any tool emitting the mutation-testing-elements schema"
 user-invocable: false
+disable-model-invocation: true
 ---
 <!-- Shared partial: mutation result parser -->
 <!-- Referenced by: audit-mutation, gate, and the mutation-gate skill. Do not use standalone. -->

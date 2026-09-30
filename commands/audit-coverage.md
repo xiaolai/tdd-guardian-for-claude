@@ -1,19 +1,6 @@
 ---
 name: audit-coverage
-description: |
-  Dispatch the tdd-coverage-auditor agent to run the coverage command, compare against thresholds, and list uncovered branches with proposed tests.
-
-  <example>
-  user: /tdd-guardian:audit-coverage
-  assistant: |
-    Loading config, then dispatching the tdd-coverage-auditor. It runs every lane with `coverage: "include"`, merges their reports via the parse-coverage partial, compares the merged totals against `coverageThresholds`, lists uncovered code per file with the lane each gap belongs in, proposes concrete tests with assertion levels, and runs the coverage-ignore directive audit. Returns a PASS/FAIL verdict, flagging the merge as approximate if any lane emitted a summary-only format.
-  </example>
-
-  <example>
-  user: /tdd-guardian:audit-coverage src/queue.ts
-  assistant: |
-    Treating `src/queue.ts` as a scope hint — I will run the coverage command as configured, then filter the auditor's focus to lines in that path. The gate still evaluates the whole-project totals against thresholds; the detail report concentrates on the requested file.
-  </example>
+description: Dispatch the tdd-coverage-auditor agent to run the coverage command, compare against thresholds, and list uncovered branches with proposed tests.
 argument-hint: "[optional file or directory to focus the report on]"
 allowed-tools: Read, Bash, Glob, Grep, Task
 model: inherit
@@ -25,7 +12,7 @@ Dispatch the `tdd-coverage-auditor` agent.
 
 ### Step 1 — Load config
 
-Follow `commands/shared/load-config.md`. Stop on missing/disabled.
+Follow `${CLAUDE_PLUGIN_ROOT}/commands/shared/load-config.md`. Stop on missing/disabled.
 
 ### Step 1b — Determine report scope
 
@@ -42,7 +29,7 @@ The scope hint never changes the verdict. Thresholds apply to the merged project
 
 ### Step 2 — Run the contributing lanes
 
-Identify every lane with `coverage: "include"`. Run each via `commands/shared/run-lane.md` (setup → command → coverage report → teardown).
+Identify every lane with `coverage: "include"`. Run each via `${CLAUDE_PLUGIN_ROOT}/commands/shared/run-lane.md` (setup → command → coverage report → teardown).
 
 If no lane sets `coverage: "include"`, stop with:
 
@@ -57,7 +44,7 @@ If a lane fails, stop with its phase, exit code, and output tail. The auditor ca
 
 ### Step 3 — Parse and merge
 
-Follow `commands/shared/parse-coverage.md` to load each lane's `coverageSummaryPath`, normalize, and merge.
+Follow `${CLAUDE_PLUGIN_ROOT}/commands/shared/parse-coverage.md` to load each lane's `coverageSummaryPath`, normalize, and merge.
 
 Record the merge method. When it is `weighted`, say so in the report and name the lane whose summary-only format forced the fallback — a weighted number quoted as a union is a wrong number stated confidently.
 
@@ -135,3 +122,17 @@ entire reason the feature exists.}
 - Output: coverage report file + normalized summary in `state.json`.
 - Side effects: runs the coverage command (may be slow). Writes two files under `.claude/tdd-guardian/`.
 - Failure modes: coverage runner error → stop with runner message; null-valued metric + non-zero threshold → WARN not FAIL.
+
+## Examples
+
+<example>
+user: /tdd-guardian:audit-coverage
+assistant: |
+  Loading config, then dispatching the tdd-coverage-auditor. It runs every lane with `coverage: "include"`, merges their reports via the parse-coverage partial, compares the merged totals against `coverageThresholds`, lists uncovered code per file with the lane each gap belongs in, proposes concrete tests with assertion levels, and runs the coverage-ignore directive audit. Returns a PASS/FAIL verdict, flagging the merge as approximate if any lane emitted a summary-only format.
+</example>
+
+<example>
+user: /tdd-guardian:audit-coverage src/queue.ts
+assistant: |
+  Treating `src/queue.ts` as a scope hint — I will run the coverage command as configured, then filter the auditor's focus to lines in that path. The gate still evaluates the whole-project totals against thresholds; the detail report concentrates on the requested file.
+</example>

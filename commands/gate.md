@@ -1,19 +1,6 @@
 ---
 name: gate
-description: |
-  Run the lanes bound to a trigger (commit, push, taskCompleted, manual) or a named lane, then evaluate the coverage and mutation gates and refresh gate state. This is how you make a stale gate fresh before committing or pushing.
-
-  <example>
-  user: /tdd-guardian:gate push
-  assistant: |
-    Resolving which lanes gate a push — every lane with `commit` or `push` in `gateOn`, since push subsumes commit. I run each in order (setup, command, coverage report, teardown), merge coverage across contributing lanes, compare against thresholds, run the mutation gate if it is bound to push, then write per-lane results to state.json so the PreToolUse hook sees a fresh gate.
-  </example>
-
-  <example>
-  user: /tdd-guardian:gate e2e
-  assistant: |
-    `e2e` matches a lane name rather than a trigger, so I run that single lane — including its setupCommand and teardownCommand — and record its result. Coverage thresholds are not evaluated, because a single-lane run cannot produce the merged total the thresholds apply to.
-  </example>
+description: Run the lanes bound to a trigger (commit, push, taskCompleted, manual) or a named lane, then evaluate the coverage and mutation gates and refresh gate state. This is how you make a stale gate fresh before committing or pushing.
 argument-hint: "[commit | push | taskCompleted | manual | <lane name>]"
 allowed-tools: Read, Write, Bash, Glob, Grep
 model: inherit
@@ -25,7 +12,7 @@ Run gate lanes on demand and refresh state.
 
 ### Step 1 — Load config
 
-Follow `commands/shared/load-config.md`. Stop on missing or disabled config. Surface validation warnings.
+Follow `${CLAUDE_PLUGIN_ROOT}/commands/shared/load-config.md`. Stop on missing or disabled config. Surface validation warnings.
 
 ### Step 2 — Resolve the target
 
@@ -50,7 +37,7 @@ If `preflightCommand` is set, run it once before any lane. On failure, stop with
 
 ### Step 4 — Run each lane
 
-For each selected lane, follow `commands/shared/run-lane.md`: setup → command → coverage report → teardown.
+For each selected lane, follow `${CLAUDE_PLUGIN_ROOT}/commands/shared/run-lane.md`: setup → command → coverage report → teardown.
 
 | Result | Action |
 |--------|--------|
@@ -65,7 +52,7 @@ An `optional: true` lane records its failure and continues. Say clearly in the r
 
 ### Step 5 — Coverage gate
 
-Merge the reports from every lane with `coverage: "include"` per `commands/shared/parse-coverage.md`, then apply the `tdd-guardian:coverage-gate` rules:
+Merge the reports from every lane with `coverage: "include"` per `${CLAUDE_PLUGIN_ROOT}/commands/shared/parse-coverage.md`, then apply the `tdd-guardian:coverage-gate` rules:
 
 - Reject a merge measuring zero lines.
 - Compare against thresholds (`absolute`) or the recorded baseline (`no-decrease`).
@@ -76,7 +63,7 @@ Skip this step when a single lane was selected by name — thresholds apply to t
 
 ### Step 6 — Mutation gate
 
-If `requireMutation` is true and `mutationGateOn` includes the resolved trigger, run `mutationCommand` and parse per `commands/shared/parse-mutation.md`. Skip silently when it is not bound to this trigger.
+If `requireMutation` is true and `mutationGateOn` includes the resolved trigger, run `mutationCommand` and parse per `${CLAUDE_PLUGIN_ROOT}/commands/shared/parse-mutation.md`. Skip silently when it is not bound to this trigger.
 
 ### Step 7 — Write state
 
@@ -106,7 +93,7 @@ Prefer writing state through the library so the shape stays in sync with what th
 
 ```bash
 node -e "
-const l=require('<plugin-root>/scripts/tdd-guardian/lib/lanes.js');
+const l=require('${CLAUDE_PLUGIN_ROOT}/scripts/tdd-guardian/lib/lanes.js');
 const s=l.loadState(process.cwd());
 l.recordLaneResult(s,'<lane>',{ok:true,status:'pass',durationMs:0},l.headSha(process.cwd()));
 l.saveState(process.cwd(),s);
@@ -164,3 +151,17 @@ environment failure or a test failure.}
 2. Never write a passing state for a lane that did not pass.
 3. An environment failure never triggers a code fix. Report it and stop.
 4. When a single lane is selected by name, skip the coverage gate and say why.
+
+## Examples
+
+<example>
+user: /tdd-guardian:gate push
+assistant: |
+  Resolving which lanes gate a push — every lane with `commit` or `push` in `gateOn`, since push subsumes commit. I run each in order (setup, command, coverage report, teardown), merge coverage across contributing lanes, compare against thresholds, run the mutation gate if it is bound to push, then write per-lane results to state.json so the PreToolUse hook sees a fresh gate.
+</example>
+
+<example>
+user: /tdd-guardian:gate e2e
+assistant: |
+  `e2e` matches a lane name rather than a trigger, so I run that single lane — including its setupCommand and teardownCommand — and record its result. Coverage thresholds are not evaluated, because a single-lane run cannot produce the merged total the thresholds apply to.
+</example>
