@@ -397,3 +397,10 @@ node --test
 ## License
 
 ISC
+
+## Composing with dev-team
+
+When dev-team orchestrates the task, use this plugin for lane execution, freshness and red receipts.
+Put the TDD gate command in the dev-team profile and retain these standalone workflow commands for
+projects without dev-team. TaskCompleted checks a task-state transition, not every assistant answer.
+An installed but uninitialized plugin does not block commits: check `/tdd-guardian:status` after setup.

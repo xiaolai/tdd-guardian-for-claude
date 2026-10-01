@@ -1,5 +1,4 @@
 {
-  "description": "PreToolUse guards Bash commit/push commands until every gating lane has a fresh pass; TaskCompleted runs the taskCompleted lanes, merges coverage, and records per-lane gate state.",
   "hooks": {
     "PreToolUse": [
       {
